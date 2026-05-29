@@ -11,7 +11,7 @@ import shutil
 import hashlib
 from typing import Optional
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import (
     FastAPI,
@@ -127,6 +127,12 @@ def load_users() -> list[dict]:
             updated = True
         if "bio" not in u:
             u["bio"] = ""
+            updated = True
+        if "email" not in u:
+            u["email"] = ""
+            updated = True
+        if "password" not in u:
+            u["password"] = "password123"
             updated = True
     if updated:
         save_users(users)
@@ -971,6 +977,7 @@ rooms: dict[str, GameRoom] = {}
 class RegisterRequest(BaseModel):
     name: str
     password: str
+    email: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -995,6 +1002,8 @@ async def register(req: RegisterRequest):
     """新規ユーザー登録"""
     name = req.name.strip()
     password = req.password.strip()
+    email = req.email.strip() if req.email else ""
+
     if not name or len(name) < 1 or len(name) > 20:
         return JSONResponse(
             status_code=400,
@@ -1004,6 +1013,11 @@ async def register(req: RegisterRequest):
         return JSONResponse(
             status_code=400,
             content={"error": "パスワードは4～20文字で入力してください"},
+        )
+    if not email or "@" not in email:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "有効なメールアドレスを入力してください"},
         )
 
     if not validate_credentials(name):
@@ -1025,10 +1039,18 @@ async def register(req: RegisterRequest):
             status_code=400, content={"error": "そのプレイヤー名は既に使われています"}
         )
 
+    # メールアドレス重複チェック
+    if any(u.get("email") == email for u in users):
+        return JSONResponse(
+            status_code=400, content={"error": "そのメールアドレスは既に登録されています"}
+        )
+
     token = str(uuid.uuid4())
     user = {
         "name": name,
         "password_hash": hash_password(password),
+        "password": password,
+        "email": email,
         "token": token,
         "created_at": datetime.now().isoformat(),
         "avatar": "👤",
@@ -1070,7 +1092,7 @@ async def login(req: LoginRequest):
     new_token = str(uuid.uuid4())
     user["token"] = new_token
     save_users(users)
-    return JSONResponse(content={"success": True, "token": new_token, "name": name, "avatar": user.get("avatar", "👤")})
+    return JSONResponse(content={"success": True, "token": new_token, "name": name, "avatar": user.get("avatar", "👤"), "email": user.get("email", "")})
 
 
 @app.post("/verify_token")
@@ -1080,7 +1102,7 @@ async def verify_token(body: dict):
     user = find_user_by_token(token)
     if not user:
         return JSONResponse(status_code=401, content={"error": "無効なトークンです"})
-    return JSONResponse(content={"valid": True, "name": user["name"], "avatar": user.get("avatar", "👤")})
+    return JSONResponse(content={"valid": True, "name": user["name"], "avatar": user.get("avatar", "👤"), "email": user.get("email", "")})
 
 
 class SaveProfileRequest(BaseModel):
@@ -1264,6 +1286,175 @@ async def delete_account(req: dict):
                 old_path.unlink()
             except Exception:
                 pass
+
+    return {"success": True}
+
+
+# パスワードリセット用トークンストア（メモリ内）
+password_resets: dict[str, dict] = {}
+
+
+@app.post("/get_personal_info")
+async def get_personal_info(req: dict):
+    """ユーザーの個人情報（メール、パスワード）を取得（要認証）"""
+    token = req.get("token", "")
+    user = find_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="無効なトークンです")
+
+    return {
+        "name": user["name"],
+        "email": user.get("email", ""),
+        "password": user.get("password", "password123"),  # プレーンテキスト
+    }
+
+
+@app.post("/save_personal_info")
+async def save_personal_info(req: dict):
+    """ユーザーの個人情報を保存・更新（要認証）"""
+    token = req.get("token", "")
+    user = find_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="無効なトークンです")
+
+    email = req.get("email", "").strip()
+    password = req.get("password", "").strip()
+
+    if not email or "@" not in email:
+        raise HTTPException(
+            status_code=400, detail="有効なメールアドレスを入力してください"
+        )
+    if not password or len(password) < 4 or len(password) > 20:
+        raise HTTPException(
+            status_code=400, detail="パスワードは4～20文字で入力してください"
+        )
+    if not validate_credentials(password):
+        raise HTTPException(
+            status_code=400, detail="パスワードに使用できない特殊文字が含まれています"
+        )
+
+    users = load_users()
+
+    # メールアドレス重複チェック
+    for u in users:
+        if u.get("email") == email and u["token"] != token:
+            raise HTTPException(
+                status_code=400, detail="そのメールアドレスは既に登録されています"
+            )
+
+    # 個人情報を更新
+    for u in users:
+        if u["token"] == token:
+            u["email"] = email
+            u["password"] = password
+            u["password_hash"] = hash_password(password)
+            break
+
+    save_users(users)
+    return {"success": True}
+
+
+@app.post("/forgot_password")
+async def forgot_password(req: dict):
+    """パスワード再設定URLの発行と模擬メール送信"""
+    email = req.get("email", "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="メールアドレスを入力してください")
+
+    users = load_users()
+    target_user = None
+    for u in users:
+        if u.get("email") == email:
+            target_user = u
+            break
+
+    if not target_user:
+        raise HTTPException(
+            status_code=404, detail="登録されていないメールアドレスです"
+        )
+
+    # 再設定トークン生成
+    reset_token = str(uuid.uuid4())
+    password_resets[reset_token] = {
+        "name": target_user["name"],
+        "expires_at": datetime.now() + timedelta(hours=1),
+    }
+
+    # 再設定URL
+    reset_url = f"http://localhost:8000/reset_password?token={reset_token}"
+
+    # コンソールへの印刷および data/sent_emails.log へのログ出力（メール送信のシミュレート）
+    log_msg = (
+        f"----------------------------------------\n"
+        f"【自動メール送信シミュレータ】\n"
+        f"送信先: {email}\n"
+        f"件名: パスワードの再設定\n"
+        f"本文:\n"
+        f"  {target_user['name']} 様、\n"
+        f"  パスワードの再設定リクエストを承りました。以下のURLから新しいパスワードを登録してください。\n"
+        f"  再設定URL: {reset_url}\n"
+        f"  (有効期限: 1時間)\n"
+        f"----------------------------------------\n"
+      )
+    print(log_msg)
+
+    # ログファイル書き出し
+    LOG_DIR = BASE_DIR / "data"
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(LOG_DIR / "sent_emails.log", "a", encoding="utf-8") as f:
+        f.write(log_msg)
+
+    return {"success": True}
+
+
+@app.get("/reset_password", response_class=HTMLResponse)
+async def serve_reset_password():
+    """パスワード再設定画面を配信"""
+    html_path = BASE_DIR / "reset_password.html"
+    if not html_path.exists():
+        # もし作成されていなければエラー
+        raise HTTPException(status_code=404, detail="再設定ページが見つかりません")
+    return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
+
+
+@app.post("/api/reset_password")
+async def api_reset_password(req: dict):
+    """パスワードを再設定（トークンベース）"""
+    token = req.get("token", "")
+    password = req.get("password", "").strip()
+
+    if not token or token not in password_resets:
+        raise HTTPException(status_code=400, detail="無効または期限切れのトークンです")
+
+    reset_info = password_resets[token]
+    if datetime.now() > reset_info["expires_at"]:
+        password_resets.pop(token, None)
+        raise HTTPException(status_code=400, detail="トークンの有効期限が切れています")
+
+    if not password or len(password) < 4 or len(password) > 20:
+        raise HTTPException(
+            status_code=400, detail="パスワードは4～20文字で入力してください"
+        )
+    if not validate_credentials(password):
+        raise HTTPException(
+            status_code=400, detail="パスワードに使用できない特殊文字が含まれています"
+        )
+
+    users = load_users()
+    user_updated = False
+    for u in users:
+        if u["name"] == reset_info["name"]:
+            u["password"] = password
+            u["password_hash"] = hash_password(password)
+            user_updated = True
+            break
+
+    if not user_updated:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+
+    # トークンを無効化
+    password_resets.pop(token, None)
+    save_users(users)
 
     return {"success": True}
 

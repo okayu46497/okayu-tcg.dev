@@ -20,7 +20,7 @@ def get_auth_tokens():
     
     for name in players:
         # まず登録を試みる
-        res = requests.post(f"{BASE_URL}/register", json={"name": name, "password": "password123"})
+        res = requests.post(f"{BASE_URL}/register", json={"name": name, "email": f"{name}@example.com", "password": "password123"})
         if res.status_code == 200:
             data = res.json()
             tokens[name] = data["token"]

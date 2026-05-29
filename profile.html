@@ -270,6 +270,83 @@
     }
 
     .hidden { display: none !important; }
+
+    /* Custom Modal Style */
+    .custom-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(12px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .custom-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .custom-modal {
+      width: 90%;
+      max-width: 440px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      transform: translateY(20px);
+      transition: transform 0.3s ease;
+      position: relative;
+    }
+
+    .custom-modal-overlay.active .custom-modal {
+      transform: translateY(0);
+    }
+
+    .custom-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .custom-modal-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .custom-modal-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+
+    .custom-modal-close:hover {
+      color: #fff;
+    }
+
+    .custom-modal-body {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
@@ -284,8 +361,10 @@
       </div>
       <h2 class="title" id="page-title" style="margin-bottom: 0;">ユーザープロフィール</h2>
 
-      <!-- 退会メニューポップアップ -->
-      <div id="more-menu" class="hidden" style="position: absolute; left: 0; top: 32px; background: #141828; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+      <!-- メニューポップアップ -->
+      <div id="more-menu" class="hidden" style="position: absolute; left: 0; top: 32px; background: #141828; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 8px;">
+        <span onclick="openPersonalInfoModal()" style="color: var(--text); font-size: 13px; font-weight: bold; cursor: pointer; display: block; white-space: nowrap; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">👤 個人情報</span>
+        <div style="border-top: 1px solid var(--border); margin: 2px 0;"></div>
         <span onclick="confirmDeleteAccount()" style="color: var(--danger); font-size: 13px; font-weight: bold; cursor: pointer; display: block; white-space: nowrap; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">⚠️ 退会する</span>
       </div>
     </div>
@@ -375,6 +454,12 @@
       }
 
       await loadProfileData();
+
+      // ロビーから案内遷移されてきた場合の自動ポップアップ
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('prompt_email') === '1' && isOwnProfile) {
+        openPersonalInfoModal();
+      }
     }
 
     async function loadProfileData() {
@@ -638,9 +723,139 @@
       setTimeout(() => toast.remove(), 2500);
     }
 
+    // ============================================================
+    // 個人情報モーダル制御
+    // ============================================================
+    function openPersonalInfoModal() {
+      // メニューを閉じる
+      const menu = document.getElementById('more-menu');
+      if (menu) menu.classList.add('hidden');
+
+      // フォーム初期化とAPI呼び出し
+      document.getElementById('personal-name').value = targetUsername;
+      document.getElementById('personal-email').value = '';
+      document.getElementById('personal-pass').value = '';
+      document.getElementById('personal-pass').type = 'password';
+
+      const overlay = document.getElementById('personal-info-modal');
+      overlay.classList.add('active');
+
+      // API から最新の個人情報を取得
+      fetch('/get_personal_info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then(data => {
+        document.getElementById('personal-email').value = data.email || '';
+        document.getElementById('personal-pass').value = data.password || '';
+      })
+      .catch(err => {
+        showToast('個人情報の取得に失敗しました。', 'error');
+      });
+    }
+
+    function closePersonalInfoModal() {
+      document.getElementById('personal-info-modal').classList.remove('active');
+    }
+
+    function togglePersonalPasswordVisibility() {
+      const input = document.getElementById('personal-pass');
+      if (input.type === 'password') {
+        input.type = 'text';
+      } else {
+        input.type = 'password';
+      }
+    }
+
+    async function savePersonalInfo() {
+      const email = document.getElementById('personal-email').value.trim();
+      const password = document.getElementById('personal-pass').value.trim();
+
+      if (!email || !email.includes('@')) {
+        showToast('有効なメールアドレスを入力してください', 'error');
+        return;
+      }
+      if (!password || password.length < 4 || password.length > 20) {
+        showToast('パスワードは4～20文字で入力してください', 'error');
+        return;
+      }
+
+      // 特殊文字バリデーション
+      const allowedRegex = /^[a-zA-Z0-9+\-*/=%@!"#$&'<>{}\[\]~]+$/;
+      if (!allowedRegex.test(password)) {
+        showToast('パスワードに使用できない特殊文字が含まれています。', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btn-save-personal');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '保存中...';
+
+      try {
+        const res = await fetch('/save_personal_info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, email, password })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showToast('個人情報を更新しました！', 'success');
+          closePersonalInfoModal();
+          loadProfileData();
+        } else {
+          showToast(data.detail || '個人情報の更新に失敗しました。', 'error');
+        }
+      } catch (err) {
+        showToast('通信エラーが発生しました。', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
     // 起動
     init();
   </script>
+
+  <!-- 個人情報管理モーダル -->
+  <div id="personal-info-modal" class="custom-modal-overlay">
+    <div class="custom-modal" style="max-width: 440px;">
+      <div class="custom-modal-header">
+        <h3 class="custom-modal-title">👤 個人情報の管理</h3>
+        <button class="custom-modal-close" onclick="closePersonalInfoModal()">×</button>
+      </div>
+      <div class="custom-modal-body">
+        <div class="form-group-personal" style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: bold;">プレイヤー名（変更不可）</label>
+          <input type="text" id="personal-name" disabled style="width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text-dim); cursor: not-allowed;">
+        </div>
+
+        <div class="form-group-personal" style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: bold;">メールアドレス</label>
+          <input type="email" id="personal-email" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: #fff; outline: none; transition: border-color 0.2s;">
+        </div>
+
+        <div class="form-group-personal" style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: bold;">現在のパスワード</label>
+          <div style="position: relative;">
+            <input type="password" id="personal-pass" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; padding-right: 44px; color: #fff; outline: none; transition: border-color 0.2s;">
+            <button type="button" onclick="togglePersonalPasswordVisibility()" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;">👁️</button>
+          </div>
+        </div>
+      </div>
+      <div class="custom-modal-footer" style="display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="btn btn-secondary" onclick="closePersonalInfoModal()" style="padding: 10px 18px; font-size: 14px; flex: none; width: auto;">キャンセル</button>
+        <button class="btn btn-primary" id="btn-save-personal" onclick="savePersonalInfo()" style="padding: 10px 18px; font-size: 14px; flex: none; width: auto;">変更を保存</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

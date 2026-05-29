@@ -1,18 +1,42 @@
 [
-    {
-        "name": "okayu",
-        "password_hash": "81fef406117d1a8b5f59f1be36cf137c42d4fcde7b0e04425a303548c86dcbf8",
-        "token": "857f7004-519d-4065-9831-0e45faf6ba18",
-        "created_at": "2026-05-25T10:12:14.550100",
-        "avatar": "image:avatar_testplayer1_c89f2fe0.jpg",
-        "bio": "A"
-    },
-    {
-        "name": "testplayer2",
-        "password_hash": "8698a8f3135087c34233b65ebc968ce3fe8be31eb830fd2ec095ed07ecd89385",
-        "token": "c7182df4-fd5d-4634-b33a-b3bdeb23971e",
-        "created_at": "2026-05-25T12:43:31.478418",
-        "avatar": "👤",
-        "bio": ""
-    }
+  {
+    "name": "okayu",
+    "password_hash": "81fef406117d1a8b5f59f1be36cf137c42d4fcde7b0e04425a303548c86dcbf8",
+    "token": "857f7004-519d-4065-9831-0e45faf6ba18",
+    "created_at": "2026-05-25T10:12:14.550100",
+    "avatar": "image:avatar_testplayer1_c89f2fe0.jpg",
+    "bio": "A",
+    "email": "",
+    "password": "password123"
+  },
+  {
+    "name": "testplayer2",
+    "password_hash": "8698a8f3135087c34233b65ebc968ce3fe8be31eb830fd2ec095ed07ecd89385",
+    "token": "c7182df4-fd5d-4634-b33a-b3bdeb23971e",
+    "created_at": "2026-05-25T12:43:31.478418",
+    "avatar": "👤",
+    "bio": "",
+    "email": "",
+    "password": "password123"
+  },
+  {
+    "name": "testp1",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "password": "password123",
+    "email": "testp1@example.com",
+    "token": "b5b73d4b-9bf0-4041-b8e2-d5290fbc8715",
+    "created_at": "2026-05-29T20:09:25.872136",
+    "avatar": "👤",
+    "bio": ""
+  },
+  {
+    "name": "testp2",
+    "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "password": "password123",
+    "email": "testp2@example.com",
+    "token": "140c9fab-69e0-4f79-b576-7ff19547e431",
+    "created_at": "2026-05-29T20:09:27.967981",
+    "avatar": "👤",
+    "bio": ""
+  }
 ]

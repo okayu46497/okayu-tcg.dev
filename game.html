@@ -1069,7 +1069,7 @@
     /* ============================================ */
     @media (max-height: 480px) {
       .game-container {
-        grid-template-rows: auto 1fr auto;
+        grid-template-rows: auto 1fr auto !important;
       }
 
       .top-bar {
@@ -1091,7 +1091,7 @@
       }
 
       .field {
-        grid-template-rows: auto auto auto 1fr auto 1fr auto auto;
+        grid-template-rows: auto 0px 46px 1fr auto 1fr 46px 40px !important;
       }
 
       .opponent-info {
@@ -1102,13 +1102,9 @@
         font-size: 11px;
       }
 
-      .stat-chip {
-        padding: 2px 6px;
-        font-size: 10px;
-      }
-
-      .stat-chip .emoji {
-        font-size: 11px;
+      /* スマホ横画面ではステータスチップスを非表示にしてスペースを確保 */
+      .stat-chips {
+        display: none !important;
       }
 
       #opp-hand-container {
@@ -1139,8 +1135,8 @@
 
       /* スマホ横画面用カード超コンパクト化 */
       .card {
-        width: 44px !important;
-        height: 60px !important;
+        width: 36px !important;
+        height: 50px !important;
         font-size: 8px !important;
         border-radius: 4px !important;
         border-width: 1px !important;
@@ -1190,22 +1186,22 @@
 
       /* シールドカード */
       .card.shield-card {
-        width: 30px !important;
-        height: 42px !important;
+        width: 26px !important;
+        height: 36px !important;
         font-size: 10px !important;
       }
 
       #my-shield-zone,
       #opp-shield-zone {
         min-width: 100px !important;
-        min-height: 44px !important;
+        min-height: 36px !important;
         padding: 2px 4px !important;
       }
 
       /* マナカード */
       .card.mana-card {
-        width: 32px !important;
-        height: 44px !important;
+        width: 28px !important;
+        height: 38px !important;
       }
 
       .card.mana-card .card-cost {
@@ -1220,13 +1216,13 @@
 
       /* デッキ・墓地パイル */
       .deck-pile {
-        width: 32px !important;
-        height: 44px !important;
+        width: 28px !important;
+        height: 38px !important;
       }
 
       .deck-pile-card {
-        width: 32px !important;
-        height: 44px !important;
+        width: 28px !important;
+        height: 38px !important;
       }
 
       .deck-pile-count {
@@ -1252,14 +1248,14 @@
       #opp-shield-zone,
       #my-shield-zone,
       #my-grave-pile {
-        min-height: 44px !important;
-        height: 44px !important;
+        min-height: 36px !important;
+        height: 36px !important;
       }
 
       #opp-mana-zone,
       #my-mana-zone {
-        min-height: 44px !important;
-        height: 44px !important;
+        min-height: 36px !important;
+        height: 36px !important;
         padding: 0 !important;
       }
 
@@ -1290,19 +1286,19 @@
       }
 
       #my-hand .card {
-        transform: translateY(-20px) !important;
+        transform: translateY(0px) !important;
       }
 
       #my-hand .card:hover {
-        transform: translateY(-35px) !important;
+        transform: translateY(-12px) !important;
       }
 
       #my-hand .card.selected-hand-card {
-        transform: translateY(-50px) !important;
+        transform: translateY(-20px) !important;
       }
 
       #my-hand .card.selected-hand-card:hover {
-        transform: translateY(-55px) !important;
+        transform: translateY(-25px) !important;
       }
 
       .action-bar {
