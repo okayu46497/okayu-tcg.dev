@@ -16,7 +16,7 @@ WS_URL = "ws://localhost:8000/ws"
 def get_auth_tokens():
     print("=== 1. ユーザー登録/ログイン ===")
     tokens = {}
-    players = ["test_p1", "test_p2"]
+    players = ["testp1", "testp2"]
     
     for name in players:
         # まず登録を試みる
@@ -33,7 +33,7 @@ def get_auth_tokens():
             tokens[name] = data["token"]
             print(f"  ログイン成功: {name}, token={data['token']}")
             
-    return tokens["test_p1"], tokens["test_p2"]
+    return tokens["testp1"], tokens["testp2"]
 
 def create_and_save_deck(token, name):
     print(f"=== 2. デッキの作成・保存 ({name}) ===")
@@ -546,8 +546,8 @@ async def run_websocket_tests(room_id, p1_id, p2_id):
 
 if __name__ == "__main__":
     p1_token, p2_token = get_auth_tokens()
-    p1_deck_id = create_and_save_deck(p1_token, "test_p1")
-    p2_deck_id = create_and_save_deck(p2_token, "test_p2")
+    p1_deck_id = create_and_save_deck(p1_token, "testp1")
+    p2_deck_id = create_and_save_deck(p2_token, "testp2")
     room_id, p1_id, p2_id = setup_room(p1_token, p1_deck_id, p2_token, p2_deck_id)
     
     asyncio.run(run_websocket_tests(room_id, p1_id, p2_id))
