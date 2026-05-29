@@ -1607,7 +1607,7 @@
 
   <!-- Card Context Menu -->
   <div id="card-context-menu"
-    style="display:none; position:fixed; z-index:500; background:rgba(13,18,32,0.95); border:1px solid var(--accent); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:6px 0; min-width:150px; backdrop-filter:blur(8px);">
+    style="display:none; position:fixed; z-index:500; background:rgba(13,18,32,0.95); border:1px solid var(--accent); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:6px 0; min-width:180px; backdrop-filter:blur(8px);">
     <div class="menu-item" id="menu-tap" onclick="handleMenuTap()"
       style="padding:10px 16px; font-size:12px; cursor:pointer; color:var(--text); transition:all 0.2s;">🔄 タップ/アンタップ
     </div>
@@ -1616,6 +1616,27 @@
       ⚔️ 攻撃する</div>
     <div class="menu-item" id="menu-effect" onclick="handleMenuEffect()"
       style="padding:10px 16px; font-size:12px; cursor:pointer; color:var(--success); transition:all 0.2s;">📣 効果を宣言する
+    </div>
+    <div class="menu-item" id="menu-hand-summon" onclick="handleMenuHandSummon()"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:var(--accent); transition:all 0.2s; font-weight:700;">⚔️ バトルゾーンに置く
+    </div>
+    <div class="menu-item" id="menu-hand-mana" onclick="handleMenuHandMana()"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#a78bfa; transition:all 0.2s;">🔮 マナゾーンに置く
+    </div>
+    <div class="menu-item" id="menu-hand-shield-face-down" onclick="handleMenuHandShield(false)"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#fbbf24; transition:all 0.2s;">🛡️ シールドに置く (裏)
+    </div>
+    <div class="menu-item" id="menu-hand-shield-face-up" onclick="handleMenuHandShield(true)"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#f59e0b; transition:all 0.2s;">🛡️ シールドに置く (表)
+    </div>
+    <div class="menu-item" id="menu-hand-graveyard" onclick="handleMenuHandGraveyard()"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#ef4444; transition:all 0.2s;">💀 墓地に置く
+    </div>
+    <div class="menu-item" id="menu-hand-deck-top" onclick="handleMenuHandDeck('top')"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#3b82f6; transition:all 0.2s;">📦 山札の一番上に置く
+    </div>
+    <div class="menu-item" id="menu-hand-deck-bottom" onclick="handleMenuHandDeck('bottom')"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#60a5fa; transition:all 0.2s;">📦 山札の一番下に置く
     </div>
   </div>
 
@@ -1786,6 +1807,10 @@
 
     // Effect declaration state
     let hasDeclaredEffect = false;
+
+    // Double tap tracking for hand cards
+    let lastHandCardTapTime = 0;
+    let lastHandCardUuid = null;
 
     // ============================================================
     // WebSocket接続
@@ -2351,6 +2376,11 @@
       // 自分自身が操作可能なカードのみメニューを起動する（マナは即時トグルのため除外）
       if (zone === 'hand' || zone === 'my-battle' || zone === 'shields') {
         if (zone === 'hand') {
+          const now = Date.now();
+          const isDoubleTap = (lastHandCardUuid === uuid && (now - lastHandCardTapTime) < 300);
+          lastHandCardTapTime = now;
+          lastHandCardUuid = uuid;
+
           const cardEl = document.querySelector(`.card[data-uuid="${uuid}"]`);
           if (cardEl) {
             const isAlreadySelected = cardEl.classList.contains('selected-hand-card');
@@ -2360,12 +2390,13 @@
               el.classList.remove('selected-hand-card');
             });
 
-            if (!isAlreadySelected) {
+            if (isDoubleTap || isAlreadySelected) {
+              // 2回連続タップ、または既に選択状態であればコンテキストメニューを起動
+              cardEl.classList.add('selected-hand-card');
+              showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
+            } else {
               // 1回目クリック: 浮き上がらせて選択状態（全身表示）にする
               cardEl.classList.add('selected-hand-card');
-            } else {
-              // 2回目クリック: 既に選択状態であればコンテキストメニューを起動
-              showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
             }
           }
         } else {
@@ -2381,19 +2412,29 @@
       const menu = document.getElementById('card-context-menu');
       menu.style.display = 'block';
 
+      // ゾーンに応じたメニューアイテムの切り替え
+      const isHand = (zone === 'hand');
+      document.getElementById('menu-tap').style.display = (zone === 'my-battle' || zone === 'mana') ? 'block' : 'none';
+      document.getElementById('menu-attack').style.display = (zone === 'my-battle') ? 'block' : 'none';
+      document.getElementById('menu-effect').style.display = 'block'; // どのカード効果でも宣言可能
+
+      // 手札用移動メニューの表示切り替え
+      document.getElementById('menu-hand-summon').style.display = isHand ? 'block' : 'none';
+      document.getElementById('menu-hand-mana').style.display = isHand ? 'block' : 'none';
+      document.getElementById('menu-hand-shield-face-down').style.display = isHand ? 'block' : 'none';
+      document.getElementById('menu-hand-shield-face-up').style.display = isHand ? 'block' : 'none';
+      document.getElementById('menu-hand-graveyard').style.display = isHand ? 'block' : 'none';
+      document.getElementById('menu-hand-deck-top').style.display = isHand ? 'block' : 'none';
+      document.getElementById('menu-hand-deck-bottom').style.display = isHand ? 'block' : 'none';
+
       // 画面端からはみ出さないように配置
-      const menuWidth = 150;
-      const menuHeight = 120;
+      const menuWidth = 180;
+      const menuHeight = isHand ? 300 : 120;
       const finalX = Math.min(x, window.innerWidth - menuWidth - 10);
       const finalY = Math.min(y, window.innerHeight - menuHeight - 10);
 
       menu.style.left = `${finalX}px`;
       menu.style.top = `${finalY}px`;
-
-      // ゾーンに応じたメニューアイテムの切り替え
-      document.getElementById('menu-tap').style.display = (zone === 'my-battle' || zone === 'mana') ? 'block' : 'none';
-      document.getElementById('menu-attack').style.display = (zone === 'my-battle') ? 'block' : 'none';
-      document.getElementById('menu-effect').style.display = 'block'; // どのカード効果でも宣言可能
     }
 
     function closeCardInteractionMenu() {
@@ -2413,6 +2454,115 @@
     });
 
     // --- メニューアクションハンドラ ---
+
+    function handleMenuHandSummon() {
+      if (!clickedCardUuid) return;
+      const uuid = clickedCardUuid;
+
+      // 手札からバトルゾーンへの召喚・呪文詠唱の処理を実行
+      const card = gameState.you.hand.find(c => c.uuid === uuid);
+      if (!card) {
+        showToast('手札にカードが見つかりません', 'error');
+        closeCardInteractionMenu();
+        return;
+      }
+
+      const cost = card.cost || 0;
+      const tappedCount = (gameState.you.tapped_mana || []).length;
+      const isMyTurn = gameState.turn_player_id === PLAYER_ID;
+
+      if (!isMyTurn) {
+        showToast('あなたのターンではありません', 'error');
+        closeCardInteractionMenu();
+        return;
+      }
+
+      if (hasDeclaredEffect || tappedCount >= cost) {
+        if (hasDeclaredEffect) {
+          hasDeclaredEffect = false;
+          showToast('効果によりコストを支払わずに登場させました', 'success');
+        } else {
+          showToast('コスト分のマナがタップされていることを確認し、登場させました', 'success');
+        }
+
+        if (card.card_type === 'spell') {
+          sendAction({ action: 'cast_spell', card_uuid: uuid, target_uuid: null });
+        } else {
+          sendAction({ action: 'summon', card_uuid: uuid });
+        }
+      } else {
+        showToast(`マナが足りません。先にマナゾーンのカードをクリックしてタップしてください（必要タップマナ数: ${cost}, 現在タップマナ数: ${tappedCount}）`, 'error');
+      }
+      closeCardInteractionMenu();
+    }
+
+    function handleMenuHandMana() {
+      if (!clickedCardUuid) return;
+      const uuid = clickedCardUuid;
+      const isMyTurn = gameState.turn_player_id === PLAYER_ID;
+
+      if (!isMyTurn) {
+        showToast('あなたのターンではありません', 'error');
+        closeCardInteractionMenu();
+        return;
+      }
+
+      const hasCharged = gameState.you.has_charged_mana;
+
+      if (!hasCharged) {
+        sendAction({ action: 'charge_mana', card_uuid: uuid });
+      } else {
+        if (hasDeclaredEffect) {
+          sendAction({
+            action: 'move_card',
+            card_uuid: uuid,
+            from_zone: 'hand',
+            to_zone: 'mana'
+          });
+          hasDeclaredEffect = false;
+          showToast('効果によりマナを追加チャージしました', 'success');
+        } else {
+          showToast('このターンは既にマナチャージしています。カードの効果を宣言したときのみ追加でマナに置くことができます。', 'error');
+        }
+      }
+      closeCardInteractionMenu();
+    }
+
+    function handleMenuHandShield(faceUp) {
+      if (!clickedCardUuid) return;
+      sendAction({
+        action: 'move_card',
+        card_uuid: clickedCardUuid,
+        from_zone: 'hand',
+        to_zone: 'shields',
+        face_up: faceUp
+      });
+      closeCardInteractionMenu();
+    }
+
+    function handleMenuHandGraveyard() {
+      if (!clickedCardUuid) return;
+      sendAction({
+        action: 'move_card',
+        card_uuid: clickedCardUuid,
+        from_zone: 'hand',
+        to_zone: 'graveyard'
+      });
+      closeCardInteractionMenu();
+    }
+
+    function handleMenuHandDeck(position) {
+      if (!clickedCardUuid) return;
+      sendAction({
+        action: 'move_card',
+        card_uuid: clickedCardUuid,
+        from_zone: 'hand',
+        to_zone: 'deck',
+        position: position,
+        index: null
+      });
+      closeCardInteractionMenu();
+    }
 
     function handleMenuTap() {
       if (!clickedCardUuid || !clickedCardZone) return;
