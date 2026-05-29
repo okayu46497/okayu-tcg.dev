@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>TCG対戦 - バトル</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
@@ -208,6 +208,10 @@
       display: flex;
       align-items: center;
       gap: 10px;
+    }
+
+    .phone-only-avatar {
+      display: none !important;
     }
 
     .player-avatar {
@@ -1102,6 +1106,17 @@
         font-size: 11px;
       }
 
+      /* スマホ用の両隣アバターをトップバーに表示 */
+      .phone-only-avatar {
+        display: flex !important;
+      }
+
+      /* 既存のプレイヤーバッジ（名前＋アバター）は非表示 */
+      .opponent-info .player-badge,
+      .bottom-panel .your-info .player-badge {
+        display: none !important;
+      }
+
       /* スマホ横画面ではステータスチップスを非表示にしてスペースを確保 */
       .stat-chips {
         display: none !important;
@@ -1133,11 +1148,11 @@
         padding: 2px 0;
       }
 
-      /* スマホ横画面用カード超コンパクト化 */
+      /* スマホ横画面用カード (少し大きめに調整) */
       .card {
-        width: 36px !important;
-        height: 50px !important;
-        font-size: 8px !important;
+        width: 42px !important;
+        height: 58px !important;
+        font-size: 8.5px !important;
         border-radius: 4px !important;
         border-width: 1px !important;
       }
@@ -1186,22 +1201,22 @@
 
       /* シールドカード */
       .card.shield-card {
-        width: 26px !important;
-        height: 36px !important;
+        width: 32px !important;
+        height: 44px !important;
         font-size: 10px !important;
       }
 
       #my-shield-zone,
       #opp-shield-zone {
         min-width: 100px !important;
-        min-height: 36px !important;
+        min-height: 44px !important;
         padding: 2px 4px !important;
       }
 
       /* マナカード */
       .card.mana-card {
-        width: 28px !important;
-        height: 38px !important;
+        width: 34px !important;
+        height: 46px !important;
       }
 
       .card.mana-card .card-cost {
@@ -1216,13 +1231,13 @@
 
       /* デッキ・墓地パイル */
       .deck-pile {
-        width: 28px !important;
-        height: 38px !important;
+        width: 34px !important;
+        height: 46px !important;
       }
 
       .deck-pile-card {
-        width: 28px !important;
-        height: 38px !important;
+        width: 34px !important;
+        height: 46px !important;
       }
 
       .deck-pile-count {
@@ -1248,14 +1263,14 @@
       #opp-shield-zone,
       #my-shield-zone,
       #my-grave-pile {
-        min-height: 36px !important;
-        height: 36px !important;
+        min-height: 44px !important;
+        height: 44px !important;
       }
 
       #opp-mana-zone,
       #my-mana-zone {
-        min-height: 36px !important;
-        height: 36px !important;
+        min-height: 44px !important;
+        height: 44px !important;
         padding: 0 !important;
       }
 
@@ -1290,15 +1305,15 @@
       }
 
       #my-hand .card:hover {
-        transform: translateY(-12px) !important;
+        transform: translateY(-15px) !important;
       }
 
       #my-hand .card.selected-hand-card {
-        transform: translateY(-20px) !important;
+        transform: translateY(-24px) !important;
       }
 
       #my-hand .card.selected-hand-card:hover {
-        transform: translateY(-25px) !important;
+        transform: translateY(-28px) !important;
       }
 
       .action-bar {
@@ -1377,7 +1392,11 @@
     <!-- Top bar -->
     <div class="top-bar">
       <div class="room-info">ROOM <span id="display-room-id">---</span></div>
-      <div class="turn-indicator opponent-turn" id="turn-indicator">ターン 1</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="player-avatar opponent phone-only-avatar" id="phone-opp-avatar" style="width:24px; height:24px; font-size:12px; cursor:pointer;" onclick="showOpponentProfile()" title="対戦相手のプロフィール">👤</div>
+        <div class="turn-indicator opponent-turn" id="turn-indicator">ターン 1</div>
+        <div class="player-avatar you phone-only-avatar" id="phone-my-avatar" style="width:24px; height:24px; font-size:12px; cursor:pointer;" onclick="showMyProfile()" title="自分のプロフィール">👤</div>
+      </div>
       <button class="btn-small" onclick="location.href='/'">🏠 退出</button>
     </div>
 
@@ -1837,8 +1856,10 @@
 
       // アバターを動的ロードして反映
       updateAvatarEmoji(you.name, 'your-avatar-emoji');
+      updateAvatarEmoji(you.name, 'phone-my-avatar');
       if (opp) {
         updateAvatarEmoji(opp.name, 'opponent-avatar-emoji');
+        updateAvatarEmoji(opp.name, 'phone-opp-avatar');
       }
 
       // 統計
