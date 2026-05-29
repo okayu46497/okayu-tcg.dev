@@ -1073,7 +1073,7 @@
     /* ============================================ */
     @media (max-height: 480px) {
       .game-container {
-        grid-template-rows: auto 1fr auto !important;
+        grid-template-rows: auto 1fr 0px !important;
       }
 
       .top-bar {
@@ -1095,7 +1095,7 @@
       }
 
       .field {
-        grid-template-rows: auto 0px 46px 1fr auto 1fr 46px 40px !important;
+        grid-template-rows: auto 0px 54px 1fr auto 1fr 54px 0px !important;
       }
 
       .opponent-info {
@@ -1148,11 +1148,11 @@
         padding: 2px 0;
       }
 
-      /* スマホ横画面用カード (少し大きめに調整) */
+      /* スマホ横画面用カード (さらに大きめに調整) */
       .card {
-        width: 42px !important;
-        height: 58px !important;
-        font-size: 8.5px !important;
+        width: 48px !important;
+        height: 66px !important;
+        font-size: 9px !important;
         border-radius: 4px !important;
         border-width: 1px !important;
       }
@@ -1201,22 +1201,22 @@
 
       /* シールドカード */
       .card.shield-card {
-        width: 32px !important;
-        height: 44px !important;
+        width: 38px !important;
+        height: 52px !important;
         font-size: 10px !important;
       }
 
       #my-shield-zone,
       #opp-shield-zone {
         min-width: 100px !important;
-        min-height: 44px !important;
+        min-height: 52px !important;
         padding: 2px 4px !important;
       }
 
       /* マナカード */
       .card.mana-card {
-        width: 34px !important;
-        height: 46px !important;
+        width: 40px !important;
+        height: 55px !important;
       }
 
       .card.mana-card .card-cost {
@@ -1231,13 +1231,13 @@
 
       /* デッキ・墓地パイル */
       .deck-pile {
-        width: 34px !important;
-        height: 46px !important;
+        width: 40px !important;
+        height: 55px !important;
       }
 
       .deck-pile-card {
-        width: 34px !important;
-        height: 46px !important;
+        width: 40px !important;
+        height: 55px !important;
       }
 
       .deck-pile-count {
@@ -1246,6 +1246,15 @@
 
       .deck-pile-label {
         font-size: 7px;
+      }
+
+      /* 墓地と山札の間にほんの少しだけ空間を作る */
+      #opp-grave-pile {
+        margin-right: 18px !important;
+      }
+
+      #my-grave-pile {
+        margin-left: 18px !important;
       }
 
       #opp-non-battle-row,
@@ -1263,14 +1272,14 @@
       #opp-shield-zone,
       #my-shield-zone,
       #my-grave-pile {
-        min-height: 44px !important;
-        height: 44px !important;
+        min-height: 52px !important;
+        height: 52px !important;
       }
 
       #opp-mana-zone,
       #my-mana-zone {
-        min-height: 44px !important;
-        height: 44px !important;
+        min-height: 52px !important;
+        height: 52px !important;
         padding: 0 !important;
       }
 
@@ -1281,8 +1290,8 @@
       }
 
       /* 自分手札とアクションバー */
-      .bottom-panel .your-info {
-        padding: 2px 10px !important;
+      .bottom-panel {
+        display: none !important;
       }
 
       #my-hand-container {
@@ -1305,15 +1314,15 @@
       }
 
       #my-hand .card:hover {
-        transform: translateY(-15px) !important;
+        transform: translateY(-20px) !important;
       }
 
       #my-hand .card.selected-hand-card {
-        transform: translateY(-24px) !important;
+        transform: translateY(-30px) !important;
       }
 
       #my-hand .card.selected-hand-card:hover {
-        transform: translateY(-28px) !important;
+        transform: translateY(-35px) !important;
       }
 
       .action-bar {
@@ -1391,7 +1400,11 @@
 
     <!-- Top bar -->
     <div class="top-bar">
-      <div class="room-info">ROOM <span id="display-room-id">---</span></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="room-info">ROOM <span id="display-room-id">---</span></div>
+        <button class="action-btn end-turn phone-only-avatar" id="phone-btn-end-turn" onclick="endTurn()" disabled
+          style="height:24px; padding:0 8px; font-size:9px; z-index:10; display:none; align-items:center; justify-content:center; gap:2px; background:linear-gradient(135deg, var(--danger), #dc2626); border:none; border-radius:6px; color:#fff; font-weight:bold; cursor:pointer;">⏭️終了</button>
+      </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <div class="player-avatar opponent phone-only-avatar" id="phone-opp-avatar" style="width:24px; height:24px; font-size:12px; cursor:pointer;" onclick="showOpponentProfile()" title="対戦相手のプロフィール">👤</div>
         <div class="turn-indicator opponent-turn" id="turn-indicator">ターン 1</div>
@@ -1429,7 +1442,7 @@
       <div class="zone" id="opp-non-battle-row"
         style="display:flex; gap: 16px; align-items:flex-start; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 6px 12px; background: rgba(0,0,0,0.1);">
         <!-- Left Side: Opponent Graveyard, Opponent Deck, Opponent Shield Zone -->
-        <div style="display:flex; gap: 12px; align-items:flex-start;">
+        <div id="opp-grave-deck-wrap" style="display:flex; gap: 12px; align-items:flex-start;">
           <!-- Opponent Graveyard Pile -->
           <div>
             <div class="deck-pile drop-zone" id="opp-grave-pile" data-drop-action="to_opp_graveyard"
@@ -1902,6 +1915,8 @@
 
       // ターン終了ボタン
       document.getElementById('btn-end-turn').disabled = !gameState.is_your_turn;
+      const phoneBtn = document.getElementById('phone-btn-end-turn');
+      if (phoneBtn) phoneBtn.disabled = !gameState.is_your_turn;
 
       // 山札パイル表示
       renderDeckPile('my-deck-pile', 'my-deck-count-pile', you.deck_count);
