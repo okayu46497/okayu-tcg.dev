@@ -1095,7 +1095,7 @@
       }
 
       .field {
-        grid-template-rows: auto 0px 54px 1fr auto 1fr 54px 0px !important;
+        grid-template-rows: auto 0px 68px 1fr auto 1fr 68px 0px !important;
       }
 
       .opponent-info {
@@ -1132,27 +1132,16 @@
         padding: 2px 8px;
       }
 
-      .zone-label {
-        font-size: 8px;
-        margin-bottom: 2px;
-        letter-spacing: 1px;
-      }
-
-      .zone-label .count {
-        padding: 1px 4px;
-        font-size: 8px;
-      }
-
       .card-row {
         min-height: 52px;
         padding: 2px 0;
       }
 
-      /* スマホ横画面用カード (さらに大きめに調整) */
+      /* スマホ横画面用カード (極限サイズアップ) */
       .card {
-        width: 48px !important;
-        height: 66px !important;
-        font-size: 9px !important;
+        width: 52px !important;
+        height: 72px !important;
+        font-size: 10px !important;
         border-radius: 4px !important;
         border-width: 1px !important;
       }
@@ -1184,7 +1173,7 @@
       }
 
       .card-name {
-        font-size: 7px;
+        font-size: 7.5px;
         padding: 1px 3px;
       }
 
@@ -1201,22 +1190,22 @@
 
       /* シールドカード */
       .card.shield-card {
-        width: 38px !important;
-        height: 52px !important;
+        width: 44px !important;
+        height: 60px !important;
         font-size: 10px !important;
       }
 
       #my-shield-zone,
       #opp-shield-zone {
         min-width: 100px !important;
-        min-height: 52px !important;
+        min-height: 60px !important;
         padding: 2px 4px !important;
       }
 
       /* マナカード */
       .card.mana-card {
-        width: 40px !important;
-        height: 55px !important;
+        width: 46px !important;
+        height: 63px !important;
       }
 
       .card.mana-card .card-cost {
@@ -1231,21 +1220,25 @@
 
       /* デッキ・墓地パイル */
       .deck-pile {
-        width: 40px !important;
-        height: 55px !important;
+        width: 46px !important;
+        height: 63px !important;
       }
 
       .deck-pile-card {
-        width: 40px !important;
-        height: 55px !important;
+        width: 46px !important;
+        height: 63px !important;
       }
 
       .deck-pile-count {
         font-size: 12px;
       }
 
-      .deck-pile-label {
-        font-size: 7px;
+      /* スマホ横画面では山札・墓地・シールド・マナのテキストとヒントを消してスペース拡張 */
+      .deck-pile-label,
+      .drop-zone-hint,
+      #opp-non-battle-row .zone-label,
+      #my-non-battle-row .zone-label {
+        display: none !important;
       }
 
       /* 墓地と山札の間にほんの少しだけ空間を作る */
@@ -1272,14 +1265,14 @@
       #opp-shield-zone,
       #my-shield-zone,
       #my-grave-pile {
-        min-height: 52px !important;
-        height: 52px !important;
+        min-height: 60px !important;
+        height: 60px !important;
       }
 
       #opp-mana-zone,
       #my-mana-zone {
-        min-height: 52px !important;
-        height: 52px !important;
+        min-height: 60px !important;
+        height: 60px !important;
         padding: 0 !important;
       }
 
@@ -1314,11 +1307,11 @@
       }
 
       #my-hand .card:hover {
-        transform: translateY(-20px) !important;
+        transform: translateY(-24px) !important;
       }
 
       #my-hand .card.selected-hand-card {
-        transform: translateY(-30px) !important;
+        transform: translateY(-36px) !important;
       }
 
       #my-hand .card.selected-hand-card:hover {

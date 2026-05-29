@@ -856,9 +856,12 @@
           </div>
           <div class="form-group">
             <label>パスワード</label>
-            <input type="password" id="login-pass" placeholder="パスワードを入力..." maxlength="50">
+            <div style="position: relative;">
+              <input type="password" id="login-pass" placeholder="パスワードを入力..." maxlength="50" style="padding-right: 44px; width: 100%;">
+              <button type="button" onclick="toggleLoginPasswordVisibility()" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;">👁️</button>
+            </div>
           </div>
-          <a href="#" onclick="openForgotPasswordModal(event)" style="display: block; text-align: right; font-size: 13px; color: var(--accent); margin: -8px 0 16px 0; text-decoration: none; font-weight: bold; transition: color 0.2s;">パスワードを忘れた方</a>
+          <a href="#" onclick="openForgotPasswordModal(event)" style="display: block; text-align: right; font-size: 13px; color: var(--accent); margin: 8px 0 16px 0; text-decoration: none; font-weight: bold; transition: color 0.2s;">パスワードを忘れた方</a>
           <button class="btn btn-warn" id="btn-login" onclick="doLogin()">🔑 ログイン</button>
         </div>
 
@@ -1411,6 +1414,15 @@
     // ============================================================
     // パスワード再設定 & メール未登録警告モーダル制御
     // ============================================================
+    function toggleLoginPasswordVisibility() {
+      const input = document.getElementById('login-pass');
+      if (input.type === 'password') {
+        input.type = 'text';
+      } else {
+        input.type = 'password';
+      }
+    }
+
     function openForgotPasswordModal(e) {
       if (e) e.preventDefault();
       document.getElementById('forgot-email').value = '';
