@@ -1,0 +1,3265 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG対戦 - バトル</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #080c14;
+      --bg-field: #0d1220;
+      --border: rgba(255, 255, 255, 0.06);
+      --text: #e8eaed;
+      --text-dim: #6b7280;
+      --accent: #6c63ff;
+      --accent-glow: rgba(108, 99, 255, 0.35);
+
+      /* 文明カラー */
+      --civ-fire: #ef4444;
+      --civ-fire-bg: rgba(239, 68, 68, 0.12);
+      --civ-water: #3b82f6;
+      --civ-water-bg: rgba(59, 130, 246, 0.12);
+      --civ-light: #facc15;
+      --civ-light-bg: rgba(250, 204, 21, 0.12);
+      --civ-darkness: #a855f7;
+      --civ-darkness-bg: rgba(168, 85, 247, 0.12);
+      --civ-nature: #22c55e;
+      --civ-nature-bg: rgba(34, 197, 94, 0.12);
+      --civ-zero: #9ca3af;
+      --civ-zero-bg: rgba(156, 163, 175, 0.12);
+
+      --success: #34d399;
+      --danger: #f87171;
+      --warn: #fbbf24;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ============================================ */
+    /* Layout                                       */
+    /* ============================================ */
+
+    .game-container {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* Top bar */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: rgba(0, 0, 0, 0.4);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+    }
+
+    .top-bar .room-info {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .top-bar .room-info span {
+      color: var(--accent);
+      font-weight: 700;
+      font-family: monospace;
+    }
+
+    .turn-indicator {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      transition: all 0.3s;
+    }
+
+    .turn-indicator.your-turn {
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      box-shadow: 0 0 20px var(--accent-glow);
+      animation: turnPulse 2s ease-in-out infinite;
+    }
+
+    .turn-indicator.opponent-turn {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-dim);
+    }
+
+    @keyframes turnPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 20px var(--accent-glow);
+      }
+
+      50% {
+        box-shadow: 0 0 36px var(--accent-glow);
+      }
+    }
+
+    .top-bar .btn-small {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .top-bar .btn-small:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    /* ============================================ */
+    /* Field (middle section)                       */
+    /* ============================================ */
+
+    .field {
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto 1fr auto auto;
+      gap: 0;
+      overflow: hidden;
+      position: relative;
+      background:
+        radial-gradient(ellipse at 50% 30%, rgba(108, 99, 255, 0.04) 0%, transparent 70%),
+        radial-gradient(ellipse at 50% 70%, rgba(239, 68, 68, 0.03) 0%, transparent 70%),
+        var(--bg-field);
+    }
+
+    /* Center divider line */
+    .field::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 5%;
+      width: 90%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(108, 99, 255, 0.3), transparent);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    /* Zone labels */
+    .zone {
+      padding: 4px 12px;
+      position: relative;
+    }
+
+    .zone-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .zone-label .count {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+    }
+
+    /* ============================================ */
+    /* Opponent area                                */
+    /* ============================================ */
+
+    .opponent-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .player-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .player-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .player-avatar.opponent {
+      background: linear-gradient(135deg, var(--danger), #dc2626);
+    }
+
+    .player-avatar.you {
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+    }
+
+    .player-name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .stat-chips {
+      display: flex;
+      gap: 8px;
+    }
+
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .stat-chip .emoji {
+      font-size: 13px;
+    }
+
+    /* ============================================ */
+    /* Cards                                        */
+    /* ============================================ */
+
+    .card-row {
+      display: flex;
+      gap: 6px;
+      padding: 2px 0;
+      overflow-x: auto;
+      justify-content: center;
+      flex-wrap: nowrap;
+      min-height: 70px;
+      align-items: center;
+    }
+
+    .card {
+      flex-shrink: 0;
+      width: 68px;
+      height: 95px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      cursor: grab;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+      font-size: 9px;
+    }
+
+    .card:hover {
+      transform: translateY(-8px) scale(1.05);
+      z-index: 5;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .card.dragging {
+      opacity: 0.3;
+      transform: scale(0.95);
+      box-shadow: none;
+    }
+
+    .card.tapped {
+      transform: rotate(12deg);
+      opacity: 0.6;
+    }
+
+    .card.tapped:hover {
+      transform: rotate(12deg) translateY(-4px);
+    }
+
+    .card.summoning-sick {
+      opacity: 0.7;
+    }
+
+    .card.summoning-sick::before {
+      content: '💤';
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      font-size: 12px;
+      z-index: 2;
+    }
+
+    /* Card civilization colors */
+    .card.civ-fire {
+      background: linear-gradient(180deg, #1a0505 0%, #2d0a0a 100%);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .card.civ-water {
+      background: linear-gradient(180deg, #050a1a 0%, #0a152d 100%);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .card.civ-light {
+      background: linear-gradient(180deg, #1a1805 0%, #2d2a0a 100%);
+      border-color: rgba(250, 204, 21, 0.3);
+    }
+
+    .card.civ-darkness {
+      background: linear-gradient(180deg, #10051a 0%, #1a0a2d 100%);
+      border-color: rgba(168, 85, 247, 0.3);
+    }
+
+    .card.civ-nature {
+      background: linear-gradient(180deg, #051a0a 0%, #0a2d12 100%);
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    .card.civ-zero {
+      background: linear-gradient(180deg, #141414 0%, #1f1f1f 100%);
+      border-color: rgba(156, 163, 175, 0.3);
+    }
+
+    .card-header {
+      padding: 4px 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-cost {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 11px;
+    }
+
+    .civ-fire .card-cost {
+      color: var(--civ-fire);
+      border: 1px solid var(--civ-fire);
+    }
+
+    .civ-water .card-cost {
+      color: var(--civ-water);
+      border: 1px solid var(--civ-water);
+    }
+
+    .civ-light .card-cost {
+      color: var(--civ-light);
+      border: 1px solid var(--civ-light);
+    }
+
+    .civ-darkness .card-cost {
+      color: var(--civ-darkness);
+      border: 1px solid var(--civ-darkness);
+    }
+
+    .civ-nature .card-cost {
+      color: var(--civ-nature);
+      border: 1px solid var(--civ-nature);
+    }
+
+    .civ-zero .card-cost {
+      color: var(--civ-zero);
+      border: 1px solid var(--civ-zero);
+    }
+
+    .card-type-icon {
+      font-size: 11px;
+    }
+
+    .card-name {
+      padding: 2px 6px;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.3;
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .civ-fire .card-name {
+      color: #fca5a5;
+    }
+
+    .civ-water .card-name {
+      color: #93c5fd;
+    }
+
+    .civ-light .card-name {
+      color: #fde68a;
+    }
+
+    .civ-darkness .card-name {
+      color: #d8b4fe;
+    }
+
+    .civ-nature .card-name {
+      color: #86efac;
+    }
+
+    .civ-zero .card-name {
+      color: #d1d5db;
+    }
+
+    .card-footer {
+      padding: 4px 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      color: var(--text-dim);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-power {
+      font-weight: 900;
+      color: var(--warn);
+    }
+
+    /* Hidden cards (opponent hand / shields) */
+    .card.hidden-card {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border-color: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: default;
+    }
+
+    .card.shield-card {
+      background: linear-gradient(135deg, #1a1a0a, #2d2a05);
+      border-color: rgba(250, 204, 21, 0.2);
+      width: 40px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: default;
+    }
+
+    /* Mana card (small) */
+    .card.mana-card {
+      width: 44px;
+      height: 60px;
+      font-size: 8px;
+      cursor: default;
+    }
+
+    .card.mana-card .card-header {
+      padding: 2px 4px;
+    }
+
+    .card.mana-card .card-cost {
+      width: 16px;
+      height: 16px;
+      font-size: 9px;
+    }
+
+    .card.mana-card .card-name {
+      font-size: 7px;
+      padding: 1px 4px;
+    }
+
+    .card.mana-card .card-footer {
+      display: none;
+    }
+
+    /* ============================================ */
+    /* Drop zone highlights                         */
+    /* ============================================ */
+
+    .drop-zone {
+      transition: all 0.25s ease;
+      border: 2px dashed transparent;
+      border-radius: 8px;
+    }
+
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.08);
+      box-shadow: inset 0 0 24px rgba(108, 99, 255, 0.1);
+    }
+
+    .drop-zone.drag-over-mana {
+      border-color: var(--civ-nature);
+      background: rgba(34, 197, 94, 0.08);
+      box-shadow: inset 0 0 24px rgba(34, 197, 94, 0.1);
+    }
+
+    .drop-zone.drag-over-attack {
+      border-color: var(--danger);
+      background: rgba(239, 68, 68, 0.08);
+      box-shadow: inset 0 0 24px rgba(239, 68, 68, 0.1);
+    }
+
+    .drop-zone-hint {
+      display: none;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px;
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+
+    .drop-zone.drag-over .drop-zone-hint,
+    .drop-zone.drag-over-mana .drop-zone-hint,
+    .drop-zone.drag-over-attack .drop-zone-hint {
+      display: block;
+    }
+
+    /* Drag ghost styling */
+    .drag-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.9;
+      transform: rotate(-5deg) scale(1.1);
+      filter: brightness(1.2);
+    }
+
+    /* ============================================ */
+    /* Bottom panel (your hand + actions)           */
+    /* ============================================ */
+
+    .bottom-panel {
+      background: rgba(0, 0, 0, 0.5);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+
+    .your-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+    }
+
+    .hand-zone {
+      padding: 6px 12px;
+      min-height: 115px;
+    }
+
+    .hand-zone .card-row {
+      min-height: 105px;
+    }
+
+    /* ============================================ */
+    /* Action bar                                   */
+    /* ============================================ */
+
+    .action-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid var(--border);
+      align-items: center;
+    }
+
+    .action-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .action-btn:hover:not(:disabled) {
+      background: rgba(108, 99, 255, 0.15);
+      border-color: rgba(108, 99, 255, 0.3);
+    }
+
+    .action-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .action-btn.end-turn {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .drag-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      flex: 1;
+    }
+
+    /* ============================================ */
+    /* Direct attack drop zone                      */
+    /* ============================================ */
+
+    .attack-target-zone {
+      min-height: 36px;
+      border: 2px dashed rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      transition: all 0.3s;
+      margin: 4px 16px;
+    }
+
+    .attack-target-zone.drag-over-attack {
+      border-color: var(--danger) !important;
+      background: rgba(239, 68, 68, 0.12) !important;
+      color: var(--danger);
+      font-weight: 700;
+      box-shadow: inset 0 0 24px rgba(239, 68, 68, 0.15);
+    }
+
+    /* ============================================ */
+    /* Game Log                                     */
+    /* ============================================ */
+
+    .log-panel {
+      position: fixed;
+      bottom: 200px;
+      right: 12px;
+      width: 280px;
+      max-height: 200px;
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow-y: auto;
+      padding: 10px;
+      backdrop-filter: blur(12px);
+      z-index: 20;
+      font-size: 11px;
+      transition: opacity 0.3s;
+    }
+
+    .log-panel:hover {
+      opacity: 1 !important;
+    }
+
+    .log-entry {
+      padding: 3px 0;
+      color: var(--text-dim);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      line-height: 1.4;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    /* ============================================ */
+    /* Waiting / Result overlays                    */
+    /* ============================================ */
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay h2 {
+      font-size: 28px;
+      font-weight: 900;
+      margin-bottom: 12px;
+    }
+
+    .overlay p {
+      color: var(--text-dim);
+      font-size: 15px;
+      margin-bottom: 24px;
+    }
+
+    .overlay .spinner-lg {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(108, 99, 255, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 24px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .result-win h2 {
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .result-lose h2 {
+      color: var(--text-dim);
+    }
+
+    .overlay .btn-back {
+      padding: 12px 32px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .overlay .btn-back:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px var(--accent-glow);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      z-index: 999;
+      animation: toastIn 0.3s ease-out;
+      backdrop-filter: blur(20px);
+    }
+
+    .toast.error {
+      background: rgba(248, 113, 113, 0.2);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: var(--danger);
+    }
+
+    .toast.info {
+      background: rgba(108, 99, 255, 0.2);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      color: #a5b4fc;
+    }
+
+    @keyframes toastIn {
+      from {
+        transform: translateX(-50%) translateY(-20px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* ============================================ */
+    /* Deck pile                                     */
+    /* ============================================ */
+
+    .deck-zone {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 4px 16px;
+    }
+
+    .deck-pile {
+      position: relative;
+      width: 50px;
+      height: 70px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .deck-pile:hover {
+      transform: translateY(-4px);
+    }
+
+    .deck-pile-card {
+      position: absolute;
+      width: 50px;
+      height: 70px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+    }
+
+    .deck-pile-card:nth-child(1) {
+      top: 0;
+      left: 0;
+    }
+
+    .deck-pile-card:nth-child(2) {
+      top: -2px;
+      left: 2px;
+    }
+
+    .deck-pile-card:nth-child(3) {
+      top: -4px;
+      left: 4px;
+    }
+
+    .deck-pile-count {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--text);
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      z-index: 3;
+    }
+
+    .deck-pile-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .deck-pile.empty .deck-pile-card {
+      opacity: 0.2;
+    }
+
+    .deck-pile.empty .deck-pile-count {
+      color: var(--danger);
+    }
+
+    /* Deck modal */
+    .deck-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+    }
+
+    .deck-modal.visible {
+      display: flex;
+    }
+
+    .deck-modal-content {
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 24px;
+      background: rgba(13, 18, 32, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    .deck-modal h3 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .deck-modal-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .deck-modal .btn-close {
+      margin-top: 16px;
+      padding: 8px 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .deck-modal .btn-close:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* 攻撃ターゲットの赤点線枠 */
+    .attack-target-pulsing {
+      border: 2px dashed #f87171 !important;
+      animation: pulseBorder 1.2s infinite ease-in-out !important;
+      box-shadow: 0 0 16px rgba(248, 113, 113, 0.5) !important;
+    }
+
+    @keyframes pulseBorder {
+
+      0%,
+      100% {
+        border-color: rgba(248, 113, 113, 0.4);
+        box-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+      }
+
+      50% {
+        border-color: rgba(248, 113, 113, 1);
+        box-shadow: 0 0 24px rgba(248, 113, 113, 0.7);
+      }
+    }
+
+    /* 攻撃警告バナー */
+    .attack-alert-banner {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(239, 68, 68, 0.18);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      backdrop-filter: blur(16px);
+      z-index: 400;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(239, 68, 68, 0.2);
+      animation: slideDownAlert 0.4s cubic-bezier(0.16, 1, 0.3, 1), alertPulse 2s infinite ease-in-out;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    @keyframes slideDownAlert {
+      from {
+        transform: translateX(-50%) translateY(-30px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes alertPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(239, 68, 68, 0.2);
+      }
+
+      50% {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(239, 68, 68, 0.45);
+      }
+    }
+
+    /* ============================================ */
+    /* Hand Card Selection / Sliding Styles         */
+    /* ============================================ */
+    #my-hand-container {
+      height: 56px;
+      min-height: 56px !important;
+      max-height: 56px !important;
+      overflow: visible !important;
+      padding: 2px 16px !important;
+      position: relative;
+      z-index: 15;
+    }
+
+    #my-hand {
+      height: 56px;
+      min-height: 56px !important;
+      max-height: 56px !important;
+      overflow: visible !important;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 6px;
+      position: relative;
+    }
+
+    #my-hand .card {
+      position: relative;
+      /* 待機状態: カードの3分の2の面積が露出するように、沈み込み量を30pxにする */
+      transform: translateY(30px);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, border-color 0.2s;
+      z-index: 10;
+      cursor: pointer;
+    }
+
+    #my-hand .card:hover {
+      /* ホバー時にさらに突き出す */
+      transform: translateY(18px);
+      z-index: 20;
+    }
+
+    #my-hand .card.selected-hand-card {
+      /* 選択状態: 上にスライドして全身表示 */
+      transform: translateY(-40px) !important;
+      z-index: 50 !important;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 15px var(--accent-glow) !important;
+      border-color: var(--accent) !important;
+    }
+
+    #my-hand .card.selected-hand-card:hover {
+      transform: translateY(-45px) !important;
+    }
+
+    /* ============================================ */
+    /* Smartphone Landscape (iPhone 16: max-height: 480px) */
+    /* ============================================ */
+    @media (max-height: 480px) {
+      .game-container {
+        grid-template-rows: auto 1fr auto;
+      }
+
+      .top-bar {
+        padding: 4px 10px;
+      }
+
+      .top-bar .room-info {
+        font-size: 10px;
+      }
+
+      .turn-indicator {
+        padding: 3px 10px;
+        font-size: 10px;
+      }
+
+      .top-bar .btn-small {
+        padding: 3px 8px;
+        font-size: 10px;
+      }
+
+      .field {
+        grid-template-rows: auto auto auto 1fr auto 1fr auto auto;
+      }
+
+      .opponent-info {
+        padding: 4px 10px;
+      }
+
+      .player-name {
+        font-size: 11px;
+      }
+
+      .stat-chip {
+        padding: 2px 6px;
+        font-size: 10px;
+      }
+
+      .stat-chip .emoji {
+        font-size: 11px;
+      }
+
+      #opp-hand-container {
+        display: none !important;
+      }
+
+      /* 相手手札の物理行を隠してバトルゾーンを広げる */
+
+      .zone {
+        padding: 2px 8px;
+      }
+
+      .zone-label {
+        font-size: 8px;
+        margin-bottom: 2px;
+        letter-spacing: 1px;
+      }
+
+      .zone-label .count {
+        padding: 1px 4px;
+        font-size: 8px;
+      }
+
+      .card-row {
+        min-height: 52px;
+        padding: 2px 0;
+      }
+
+      /* スマホ横画面用カード超コンパクト化 */
+      .card {
+        width: 44px !important;
+        height: 60px !important;
+        font-size: 8px !important;
+        border-radius: 4px !important;
+        border-width: 1px !important;
+      }
+
+      .card:hover {
+        transform: translateY(-4px) scale(1.05);
+      }
+
+      .card.tapped {
+        transform: rotate(10deg);
+      }
+
+      .card.tapped:hover {
+        transform: rotate(10deg) translateY(-2px);
+      }
+
+      .card-header {
+        padding: 2px 3px;
+      }
+
+      .card-cost {
+        width: 12px;
+        height: 12px;
+        font-size: 8px;
+      }
+
+      .card-type-icon {
+        font-size: 8px;
+      }
+
+      .card-name {
+        font-size: 7px;
+        padding: 1px 3px;
+      }
+
+      .card-name-overlay {
+        font-size: 6px !important;
+        padding: 1px 2px;
+      }
+
+      .card-footer {
+        display: none !important;
+      }
+
+      /* スマホ横画面ではフッター省略 */
+
+      /* シールドカード */
+      .card.shield-card {
+        width: 30px !important;
+        height: 42px !important;
+        font-size: 10px !important;
+      }
+
+      #my-shield-zone,
+      #opp-shield-zone {
+        min-width: 100px !important;
+        min-height: 44px !important;
+        padding: 2px 4px !important;
+      }
+
+      /* マナカード */
+      .card.mana-card {
+        width: 32px !important;
+        height: 44px !important;
+      }
+
+      .card.mana-card .card-cost {
+        width: 10px;
+        height: 10px;
+        font-size: 7px;
+      }
+
+      .card.mana-card .card-name {
+        font-size: 6px;
+      }
+
+      /* デッキ・墓地パイル */
+      .deck-pile {
+        width: 32px !important;
+        height: 44px !important;
+      }
+
+      .deck-pile-card {
+        width: 32px !important;
+        height: 44px !important;
+      }
+
+      .deck-pile-count {
+        font-size: 12px;
+      }
+
+      .deck-pile-label {
+        font-size: 7px;
+      }
+
+      #opp-non-battle-row,
+      #my-non-battle-row {
+        padding: 3px 8px !important;
+        gap: 8px !important;
+      }
+
+      #opp-non-battle-row>div,
+      #my-non-battle-row>div {
+        gap: 6px !important;
+      }
+
+      .attack-target-zone {
+        min-height: 24px;
+        margin: 2px 8px;
+        font-size: 9px;
+      }
+
+      /* 自分手札とアクションバー */
+      .bottom-panel .your-info {
+        padding: 4px 10px;
+      }
+
+      #my-hand-container {
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
+        padding: 1px 8px !important;
+      }
+
+      #my-hand {
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
+      }
+
+      #my-hand .card {
+        transform: translateY(20px) !important;
+      }
+
+      #my-hand .card:hover {
+        transform: translateY(10px) !important;
+      }
+
+      #my-hand .card.selected-hand-card {
+        transform: translateY(-26px) !important;
+      }
+
+      #my-hand .card.selected-hand-card:hover {
+        transform: translateY(-30px) !important;
+      }
+
+      .action-bar {
+        padding: 4px 8px;
+      }
+
+      .action-btn {
+        padding: 4px 10px;
+        font-size: 10px;
+      }
+
+      .drag-hint {
+        font-size: 9px;
+      }
+
+      .log-panel {
+        bottom: 80px;
+        right: 8px;
+        width: 200px;
+        max-height: 100px;
+        font-size: 9px;
+      }
+    }
+
+    /* Profile Modal specific styles */
+    .avatar-option {
+      cursor: pointer;
+      font-size: 24px;
+      padding: 6px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .avatar-option:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: scale(1.08);
+    }
+
+    .avatar-option.active {
+      border-color: var(--accent) !important;
+      background: rgba(108, 99, 255, 0.15) !important;
+      transform: scale(1.15);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Waiting overlay -->
+  <div class="overlay" id="overlay-waiting">
+    <div class="spinner-lg"></div>
+    <h2>対戦相手を待っています...</h2>
+    <p id="waiting-room-id">ルームID: ---</p>
+    <button class="btn-back" style="margin-top: 16px; background: linear-gradient(135deg, var(--danger), #dc2626);"
+      onclick="cancelWaiting()">キャンセル</button>
+  </div>
+
+  <!-- Result overlay -->
+  <div class="overlay hidden" id="overlay-result">
+    <h2 id="result-title"></h2>
+    <p id="result-message"></p>
+    <button class="btn-back" onclick="location.href='/'">ロビーに戻る</button>
+  </div>
+
+  <!-- Attack Alert Banner -->
+  <div class="attack-alert-banner" id="attack-alert-banner">
+    <span style="font-size: 18px;">⚠️</span>
+    <span id="attack-alert-text">攻撃されました！シールドか効果を使ってください。</span>
+  </div>
+
+  <!-- Game UI -->
+  <div class="game-container" id="game-container" style="display:none;">
+
+    <!-- Top bar -->
+    <div class="top-bar">
+      <div class="room-info">ROOM <span id="display-room-id">---</span></div>
+      <div class="turn-indicator opponent-turn" id="turn-indicator">ターン 1</div>
+      <button class="btn-small" onclick="location.href='/'">🏠 退出</button>
+    </div>
+
+    <!-- Field -->
+    <div class="field">
+
+      <!-- Opponent info -->
+      <div class="opponent-info">
+        <div class="player-badge" style="cursor:pointer;" onclick="showOpponentProfile()" title="クリックしてプロフィールを表示">
+          <div class="player-avatar opponent" id="opponent-avatar-emoji">👤</div>
+          <span class="player-name" id="opponent-name">対戦相手</span>
+        </div>
+        <div class="stat-chips">
+          <div class="stat-chip"><span class="emoji">🃏</span><span id="opp-hand-count">0</span></div>
+          <div class="stat-chip"><span class="emoji">📦</span><span id="opp-deck-count">0</span></div>
+          <div class="stat-chip"><span class="emoji">🛡️</span><span id="opp-shield-count">0</span></div>
+          <div class="stat-chip"><span class="emoji">💀</span><span id="opp-grave-count">0</span></div>
+        </div>
+      </div>
+
+      <!-- Opponent hand zone (New!) -->
+      <div class="zone" id="opp-hand-container"
+        style="background: rgba(0,0,0,0.15); border-bottom: 1px solid var(--border);">
+        <div class="zone-label">相手手札 <span class="count" id="opp-hand-label">0</span></div>
+        <div class="card-row drop-zone" id="opp-hand-zone" data-drop-action="to_opp_hand"
+          style="justify-content: center; min-height: 48px; gap: 4px;"></div>
+      </div>
+
+      <!-- Opponent Non-Battle Zone Row (Mana, Graveyard, Deck, Shields) -->
+      <div class="zone" id="opp-non-battle-row"
+        style="display:flex; gap: 16px; align-items:flex-start; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 6px 12px; background: rgba(0,0,0,0.1);">
+        <!-- Left Side: Opponent Graveyard, Opponent Deck, Opponent Shield Zone -->
+        <div style="display:flex; gap: 12px; align-items:flex-start;">
+          <!-- Opponent Graveyard Pile -->
+          <div>
+            <div class="deck-pile drop-zone" id="opp-grave-pile" data-drop-action="to_opp_graveyard"
+              style="min-height: 84px;">
+              <!-- 実際のカードは JavaScript で描画されます -->
+            </div>
+            <div class="deck-pile-label" style="text-align: center; font-size: 9px; margin-top: 2px;">相手墓地 (<span
+                id="opp-grave-count-pile">0</span>)</div>
+          </div>
+
+          <!-- Opponent deck pile -->
+          <div>
+            <div class="deck-pile" id="opp-deck-pile">
+              <div class="deck-pile-card"></div>
+              <div class="deck-pile-card"></div>
+              <div class="deck-pile-card"></div>
+              <div class="deck-pile-count" id="opp-deck-count-pile">0</div>
+            </div>
+            <div class="deck-pile-label" style="text-align: center; font-size: 9px; margin-top: 2px;">相手山札</div>
+          </div>
+
+          <!-- Opponent Shield Zone -->
+          <div>
+            <div class="card-row drop-zone" id="opp-shield-zone" data-drop-action="to_opp_shields"
+              style="gap: 4px; padding: 4px 8px; min-width: 180px; min-height: 84px; border: 1.5px dashed rgba(255,255,255,0.05); border-radius: 8px; display: flex; align-items: center; justify-content: flex-start; background: rgba(0,0,0,0.15);">
+              <span class="drop-zone-hint"
+                style="font-size: 9px; text-align: center; width: 100%; pointer-events: none;">🛡️ 相手シールド</span>
+            </div>
+            <div class="deck-pile-label" style="text-align: center; font-size: 9px; margin-top: 2px;">相手シールド</div>
+          </div>
+        </div>
+
+        <!-- Right Side: Opponent Mana Zone -->
+        <div style="flex: 1; max-width: 300px;">
+          <div class="zone-label" style="margin-bottom: 2px;">相手マナ <span class="count" id="opp-mana-label">0/0</span>
+          </div>
+          <div class="card-row" id="opp-mana-zone" style="justify-content:flex-start; min-height:60px; padding: 2px 0;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Opponent battle zone (drop target for attacking opponent creatures) -->
+      <div class="zone">
+        <div class="zone-label">相手バトルゾーン <span class="count" id="opp-battle-count">0</span></div>
+        <div class="card-row drop-zone" id="opp-battle-zone" data-drop-action="attack_creature">
+          <span class="drop-zone-hint">🗡️ ここにドロップで攻撃</span>
+        </div>
+      </div>
+
+      <!-- Direct attack target (drop zone) -->
+      <div class="attack-target-zone drop-zone" id="direct-attack-zone" data-drop-action="attack_player">
+        ⚔️ ここにドラッグでダイレクトアタック
+      </div>
+
+      <!-- Your battle zone (drop target for summoning) -->
+      <div class="zone">
+        <div class="zone-label">バトルゾーン <span class="count" id="my-battle-count">0</span></div>
+        <div class="card-row drop-zone" id="my-battle-zone" data-drop-action="summon_or_spell">
+          <span class="drop-zone-hint">⚔️ ここにドロップで召喚 / 呪文</span>
+        </div>
+      </div>
+
+      <!-- Your Non-Battle Zone Row (Mana, Shields, Deck, Graveyard) -->
+      <div class="zone" id="my-non-battle-row"
+        style="display:flex; gap: 16px; align-items:flex-start; justify-content: space-between; border-top: 1px solid var(--border); padding: 6px 12px; background: rgba(0,0,0,0.1);">
+        <!-- Left Side: My Mana Zone -->
+        <div style="flex: 1; max-width: 300px;">
+          <div class="zone-label" style="margin-bottom: 2px;">マナゾーン <span class="count" id="my-mana-label">0/0</span>
+          </div>
+          <div class="card-row drop-zone" id="my-mana-zone" data-drop-action="charge_mana"
+            style="justify-content:flex-start; min-height:60px; padding: 2px 0;">
+            <span class="drop-zone-hint" style="font-size: 8px; pointer-events: none;">🔮 ここにドロップでマナチャージ</span>
+          </div>
+        </div>
+
+        <!-- Right Side: My Shield Zone, My Deck, My Graveyard -->
+        <div style="display:flex; gap: 12px; align-items:flex-start;">
+          <!-- My Shield Zone -->
+          <div>
+            <div class="card-row drop-zone" id="my-shield-zone" data-drop-action="to_shields"
+              style="gap: 4px; padding: 4px 8px; min-width: 180px; min-height: 84px; border: 1.5px dashed rgba(250,204,21,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: flex-start; background: rgba(0,0,0,0.15);">
+              <span class="drop-zone-hint"
+                style="font-size: 9px; text-align: center; width: 100%; pointer-events: none;">🛡️ シールド</span>
+            </div>
+            <div class="deck-pile-label" style="text-align: center; font-size: 9px; margin-top: 2px;">シールド</div>
+          </div>
+
+          <!-- My deck pile -->
+          <div>
+            <div class="deck-pile drop-zone" id="my-deck-pile" onclick="showDeckModal()" data-drop-action="to_deck"
+              draggable="true" ondragstart="onDeckDragStart(event)" ondragend="onDeckDragEnd(event)">
+              <div class="deck-pile-card"></div>
+              <div class="deck-pile-card"></div>
+              <div class="deck-pile-card"></div>
+              <div class="deck-pile-count" id="my-deck-count-pile">0</div>
+              <span class="drop-zone-hint"
+                style="font-size: 8px; position: absolute; bottom: 2px; width: 100%; text-align: center; color: var(--text-dim); pointer-events: none; z-index: 4;">📦
+                送る</span>
+            </div>
+            <div class="deck-pile-label" style="text-align: center; font-size: 9px; margin-top: 2px;">山札</div>
+          </div>
+
+          <!-- My Graveyard Pile -->
+          <div>
+            <div class="deck-pile drop-zone" id="my-grave-pile" data-drop-action="to_graveyard"
+              style="min-height: 84px;">
+              <!-- 実際のカードは JavaScript で描画されます -->
+            </div>
+            <div class="deck-pile-label" style="text-align: center; font-size: 9px; margin-top: 2px;">墓地 (<span
+                id="my-grave-count-pile">0</span>)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Your hand zone (Moved inside .field to prevent any overlays) -->
+      <div class="zone drop-zone" id="my-hand-container" data-drop-action="to_hand"
+        style="background: rgba(0,0,0,0.15); border-top: 1px solid var(--border);">
+        <div class="zone-label">手札 <span class="count" id="hand-label">0</span></div>
+        <div class="card-row" id="my-hand" style="justify-content: center; min-height: 56px; gap: 6px;"></div>
+      </div>
+    </div>
+
+    <!-- Bottom panel: your info -->
+    <div class="bottom-panel">
+      <div class="your-info"
+        style="display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;">
+        <div class="player-badge" style="cursor:pointer;" onclick="showMyProfile()" title="クリックしてプロフィールを表示">
+          <div class="player-avatar you" id="your-avatar-emoji">👤</div>
+          <span class="player-name" id="your-name">あなた</span>
+        </div>
+        <!-- ターン終了ボタンを中央に配置 -->
+        <button class="action-btn end-turn" id="btn-end-turn" onclick="endTurn()" disabled
+          style="margin: 0 auto; height: 32px; padding: 0 16px; font-size: 11px; z-index: 10; display: flex; align-items: center; justify-content: center; gap: 4px;">⏭️
+          ターン終了</button>
+        <div class="stat-chips" style="margin-left: 0;">
+          <div class="stat-chip"><span class="emoji">🃏</span><span id="my-hand-count">0</span></div>
+          <div class="stat-chip"><span class="emoji">📦</span><span id="my-deck-count">0</span></div>
+          <div class="stat-chip"><span class="emoji">🛡️</span><span id="my-shield-count">0</span></div>
+          <div class="stat-chip"><span class="emoji">💀</span><span id="my-grave-count">0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game log -->
+  <div class="log-panel" id="log-panel" style="opacity:0.6;" onclick="handleLogPanelClick(event)"></div>
+
+  <!-- Deck modal (debug) -->
+  <div class="deck-modal" id="deck-modal" onclick="closeDeckModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()">
+      <h3>📦 山札の中身（デバッグ）</h3>
+      <div class="deck-modal-cards" id="deck-modal-cards"></div>
+      <div style="text-align:center;">
+        <button class="btn-close" onclick="closeDeckModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Graveyard modal -->
+  <div class="deck-modal" id="grave-modal" onclick="closeGraveModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()">
+      <h3>💀 墓地の中身</h3>
+      <div class="deck-modal-cards" id="grave-modal-cards"></div>
+      <div style="text-align:center;">
+        <button class="btn-close" onclick="closeGraveModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Context Menu -->
+  <div id="card-context-menu"
+    style="display:none; position:fixed; z-index:500; background:rgba(13,18,32,0.95); border:1px solid var(--accent); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:6px 0; min-width:150px; backdrop-filter:blur(8px);">
+    <div class="menu-item" id="menu-tap" onclick="handleMenuTap()"
+      style="padding:10px 16px; font-size:12px; cursor:pointer; color:var(--text); transition:all 0.2s;">🔄 タップ/アンタップ
+    </div>
+    <div class="menu-item" id="menu-attack" onclick="handleMenuAttack()"
+      style="padding:10px 16px; font-size:12px; cursor:pointer; color:var(--danger); transition:all 0.2s; font-weight:700;">
+      ⚔️ 攻撃する</div>
+    <div class="menu-item" id="menu-effect" onclick="handleMenuEffect()"
+      style="padding:10px 16px; font-size:12px; cursor:pointer; color:var(--success); transition:all 0.2s;">📣 効果を宣言する
+    </div>
+  </div>
+
+  <!-- Deck Drop Modal -->
+  <div class="deck-modal" id="deck-drop-modal" onclick="closeDeckDropModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()" style="max-width:360px; text-align:center;">
+      <h3>📦 山札のどこに置きますか？</h3>
+      <p style="color:var(--text-dim); font-size:11px; margin-bottom:16px;" id="deck-drop-card-name">カード名</p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="action-btn" onclick="submitDeckDrop('top')"
+          style="width:100%; background:linear-gradient(135deg, var(--accent), #8b5cf6); border:none; padding:10px; height:auto;">山札の一番上</button>
+        <button class="action-btn" onclick="submitDeckDrop('bottom')"
+          style="width:100%; background:rgba(255,255,255,0.06); padding:10px; height:auto;">山札の一番下</button>
+        <div style="display:flex; gap:8px; align-items:center; justify-content:center; margin-top:6px;">
+          <span style="font-size:12px; color:var(--text-dim);">上から</span>
+          <input type="number" id="deck-drop-index" value="1" min="1"
+            style="width:60px; padding:6px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; color:#fff; text-align:center;">
+          <span style="font-size:12px; color:var(--text-dim);">枚目</span>
+          <button class="action-btn" onclick="submitDeckDrop('index')"
+            style="background:var(--success); border:none; padding:6px 12px; font-size:11px; height:auto;">決定</button>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <button class="action-btn" onclick="closeDeckDropModal()"
+          style="background:transparent; border:none; color:var(--text-dim); height:auto; padding:6px;">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shield Drop Modal -->
+  <div class="deck-modal" id="shield-drop-modal" onclick="closeShieldDropModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()" style="max-width:320px; text-align:center;">
+      <h3>🛡️ シールドの配置設定</h3>
+      <p style="color:var(--text-dim); font-size:11px; margin-bottom:16px;" id="shield-drop-card-name">カード名</p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="action-btn" onclick="submitShieldDrop(false)"
+          style="width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(250,204,21,0.3); padding:10px; height:auto;">裏向きで置く</button>
+        <button class="action-btn" onclick="submitShieldDrop(true)"
+          style="width:100%; background:linear-gradient(135deg, var(--success), #059669); border:none; padding:10px; height:auto;">表向きで置く</button>
+      </div>
+      <div style="margin-top:16px;">
+        <button class="action-btn" onclick="closeShieldDropModal()"
+          style="background:transparent; border:none; color:var(--text-dim); height:auto; padding:6px;">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Mana Drop Modal -->
+  <div class="deck-modal" id="mana-drop-modal" onclick="closeManaDropModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()" style="max-width:320px; text-align:center;">
+      <h3>🔮 マナゾーンへのチャージ方法</h3>
+      <p style="color:var(--text-dim); font-size:11px; margin-bottom:16px;" id="mana-drop-card-name">カード名</p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="action-btn" onclick="submitManaDrop('charge')"
+          style="width:100%; background:linear-gradient(135deg, var(--accent), #8b5cf6); border:none; padding:10px; height:auto;">通常マナチャージ（1ターンに1回）</button>
+        <button class="action-btn" onclick="submitManaDrop('move')"
+          style="width:100%; background:rgba(255,255,255,0.06); padding:10px; height:auto;">マニュアル配置（制限なし）</button>
+      </div>
+      <div style="margin-top:16px;">
+        <button class="action-btn" onclick="closeManaDropModal()"
+          style="background:transparent; border:none; color:var(--text-dim); height:auto; padding:6px;">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Effect Declare Modal -->
+  <div class="deck-modal" id="effect-declare-modal" onclick="closeEffectDeclareModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()" style="max-width:400px; text-align:left;">
+      <h3 style="text-align:center;">📣 カード効果の宣言</h3>
+      <p style="color:var(--text-dim); font-size:11px; margin-bottom:12px; text-align:center;"
+        id="effect-declare-card-name">カード名</p>
+
+      <!-- テキスト効果選択エリア -->
+      <div id="effect-choices-container"
+        style="margin-bottom:14px; max-height:150px; overflow-y:auto; background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:8px; padding:8px; display:none;">
+        <span
+          style="font-size:10px; color:var(--accent); font-weight:700; display:block; margin-bottom:6px;">選択肢効果（複数選択・重複可）:</span>
+        <div id="effect-choices-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <span
+          style="font-size:10px; color:var(--text-dim); display:block; margin-bottom:4px;">宣言するテキスト（自由に編集できます）:</span>
+        <textarea id="effect-declare-text" placeholder="宣言する効果内容を入力または上記から選択..." rows="4"
+          style="width:100%; padding:10px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:8px; color:#fff; font-family:inherit; font-size:12px; resize:none; outline:none; box-sizing:border-box;"></textarea>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="action-btn" onclick="submitEffectDeclare()"
+          style="flex:1; background:linear-gradient(135deg, var(--success), #059669); border:none; height:auto; padding:8px; font-weight:700;">効果を宣言する</button>
+        <button class="action-btn" onclick="closeEffectDeclareModal()"
+          style="flex:1; background:rgba(255,255,255,0.06); border:none; height:auto; padding:8px;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Battle Resolution Modal -->
+  <div class="deck-modal" id="battle-resolution-modal" onclick="closeBattleResolutionModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()" style="max-width:360px; text-align:center;">
+      <h3 style="color:var(--danger);">💥 バトル解決（敗北）</h3>
+      <p style="font-size:12px; margin-bottom:8px;" id="battle-resolution-msg">カード名がバトルに敗北しました。</p>
+      <p style="color:var(--text-dim); font-size:10px; margin-bottom:16px;">このカードをどこに移動させますか？（効果で離れない場合は踏みとどまるを選択）</p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="action-btn" onclick="submitBattleResolution('graveyard')"
+          style="width:100%; background:linear-gradient(135deg, #10051a, #1a0a2d); border:1px solid rgba(168,85,247,0.3); padding:10px; height:auto; font-weight:700;">💀
+          墓地へ送る</button>
+        <button class="action-btn" onclick="submitBattleResolution('hand')"
+          style="width:100%; background:rgba(255,255,255,0.06); padding:10px; height:auto;">🃏 手札に戻す</button>
+        <button class="action-btn" onclick="submitBattleResolution('mana')"
+          style="width:100%; background:rgba(255,255,255,0.06); padding:10px; height:auto;">🔮 マナゾーンに置く</button>
+        <button class="action-btn" onclick="submitBattleResolution('stay')"
+          style="width:100%; background:linear-gradient(135deg, var(--success), #059669); border:none; padding:10px; height:auto; font-weight:700;">🛡️
+          踏みとどまる（場に残る）</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // 接続パラメータ
+    // ============================================================
+    const params = new URLSearchParams(location.search);
+    const ROOM_ID = params.get('room_id');
+    const PLAYER_ID = params.get('player_id');
+
+    if (!ROOM_ID || !PLAYER_ID) {
+      location.href = '/';
+    }
+
+    document.getElementById('waiting-room-id').textContent = `ルームID: ${ROOM_ID}`;
+    document.getElementById('display-room-id').textContent = ROOM_ID;
+
+    function getSleeveURL(isMine) {
+      if (!gameState) return '/static/通常裏面画像.jpg';
+      const player = isMine ? gameState.you : gameState.opponent;
+      if (player && player.sleeve_type === 'custom' && player.sleeve_image) {
+        return `/static/sleeves/${player.sleeve_image}`;
+      }
+      return '/static/通常裏面画像.jpg';
+    }
+
+    // ============================================================
+    // State
+    // ============================================================
+    let gameState = null;
+    let ws = null;
+
+    // Drag state
+    let dragCardUuid = null;
+    let dragCardSource = null;  // 'hand' or 'my-battle'
+    let dragCardData = null;    // カードオブジェクト
+
+    // Attack targeting state
+    let attackSourceUuid = null;
+
+    // Card context menu state
+    let clickedCardUuid = null;
+    let clickedCardZone = null;
+
+    // Drag-drop pending state (for modals)
+    let pendingDropUuid = null;
+    let pendingDropFromZone = null;
+    let pendingDropToZone = null;
+
+    // Battle resolution pending state
+    let pendingBattleCardUuid = null;
+
+    // Effect declaration state
+    let hasDeclaredEffect = false;
+
+    // ============================================================
+    // WebSocket接続
+    // ============================================================
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws/${ROOM_ID}?player_id=${PLAYER_ID}`);
+
+      ws.onopen = () => console.log('WebSocket connected');
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleMessage(data);
+      };
+
+      ws.onclose = () => {
+        showToast('対戦相手が退室したか、接続が切れました。ロビーに戻ります。', 'error');
+        setTimeout(() => {
+          location.href = '/';
+        }, 2000);
+      };
+      ws.onerror = (err) => console.error('WebSocket error', err);
+    }
+
+    // ============================================================
+    // メッセージハンドラ
+    // ============================================================
+    function handleMessage(data) {
+      if (data.type === 'info') return;
+
+      if (data.type === 'error') {
+        showToast(data.message, 'error');
+        return;
+      }
+
+      if (data.type === 'game_state') {
+        gameState = data;
+        if (data.turn_player_id !== PLAYER_ID) {
+          hasDeclaredEffect = false;
+        }
+        document.getElementById('overlay-waiting').classList.add('hidden');
+        document.getElementById('game-container').style.display = '';
+        renderGame();
+        if (data.phase === 'finished') showResult(data);
+      }
+
+      if (data.type === 'battle_trigger') {
+        handleBattleTrigger(data);
+      }
+    }
+
+    // ============================================================
+    // レンダリング
+    // ============================================================
+    function renderGame() {
+      if (!gameState) return;
+
+      const you = gameState.you;
+      const opp = gameState.opponent;
+
+      // ターン表示
+      const turnEl = document.getElementById('turn-indicator');
+      if (gameState.is_your_turn) {
+        turnEl.textContent = `🔥 あなたのターン (T${gameState.turn_number})`;
+        turnEl.className = 'turn-indicator your-turn';
+      } else {
+        turnEl.textContent = `相手のターン (T${gameState.turn_number})`;
+        turnEl.className = 'turn-indicator opponent-turn';
+      }
+
+      // プレイヤー名
+      document.getElementById('your-name').textContent = you.name;
+      document.getElementById('opponent-name').textContent = opp ? opp.name : '???';
+
+      // アバターを動的ロードして反映
+      updateAvatarEmoji(you.name, 'your-avatar-emoji');
+      if (opp) {
+        updateAvatarEmoji(opp.name, 'opponent-avatar-emoji');
+      }
+
+      // 統計
+      document.getElementById('my-hand-count').textContent = you.hand_count;
+      document.getElementById('my-deck-count').textContent = you.deck_count;
+      document.getElementById('my-shield-count').textContent = you.shield_count;
+      document.getElementById('my-grave-count').textContent = you.graveyard.length;
+
+      if (opp) {
+        document.getElementById('opp-hand-count').textContent = opp.hand_count;
+        document.getElementById('opp-deck-count').textContent = opp.deck_count;
+        document.getElementById('opp-shield-count').textContent = opp.shield_count;
+        document.getElementById('opp-grave-count').textContent = opp.graveyard.length;
+      }
+
+      // 手札
+      renderHand(you.hand);
+
+      // 相手手札の物理描画
+      renderOppHand(opp ? opp.hand : []);
+
+      // シールドゾーンの物理描画
+      renderShieldZone('my-shield-zone', you.shields, true);
+      renderShieldZone('opp-shield-zone', opp ? opp.shields : [], false);
+
+      // バトルゾーン
+      renderBattleZone('my-battle-zone', you.battle_zone, you.tapped_creatures, true);
+      renderBattleZone('opp-battle-zone', opp ? opp.battle_zone : [], opp ? opp.tapped_creatures : [], false);
+
+      document.getElementById('my-battle-count').textContent = you.battle_zone.length;
+      document.getElementById('opp-battle-count').textContent = opp ? opp.battle_zone.length : 0;
+
+      // マナゾーン
+      renderManaZone('my-mana-zone', you.mana_zone, you.tapped_mana);
+      renderManaZone('opp-mana-zone', opp ? opp.mana_zone : [], opp ? opp.tapped_mana : []);
+
+      document.getElementById('my-mana-label').textContent = `${you.mana_available}/${you.mana_total}`;
+      document.getElementById('opp-mana-label').textContent = opp ? `${opp.mana_available}/${opp.mana_total}` : '0/0';
+      document.getElementById('hand-label').textContent = you.hand_count;
+
+      // ターン終了ボタン
+      document.getElementById('btn-end-turn').disabled = !gameState.is_your_turn;
+
+      // 山札パイル表示
+      renderDeckPile('my-deck-pile', 'my-deck-count-pile', you.deck_count);
+      renderDeckPile('opp-deck-pile', 'opp-deck-count-pile', opp ? opp.deck_count : 0);
+
+      // 山札パイルへのスリーブ適用
+      const mySleeve = getSleeveURL(true);
+      const oppSleeve = getSleeveURL(false);
+      const applySleeveToPile = (pileId, sleeveUrl) => {
+        const pile = document.getElementById(pileId);
+        if (pile) {
+          pile.querySelectorAll('.deck-pile-card').forEach(el => {
+            el.style.backgroundImage = `url('${sleeveUrl}')`;
+            el.style.backgroundSize = 'cover';
+            el.style.backgroundPosition = 'center';
+          });
+        }
+      };
+      applySleeveToPile('my-deck-pile', mySleeve);
+      applySleeveToPile('opp-deck-pile', oppSleeve);
+
+      // 墓地パイル表示（表向きスプレッド＆省略対応）
+      renderGravePile('my-grave-pile', 'my-grave-count-pile', you.graveyard, true);
+      renderGravePile('opp-grave-pile', 'opp-grave-count-pile', opp ? opp.graveyard : [], false);
+
+      // ゲームログ
+      renderLog(gameState.log);
+
+      // 攻撃ターゲットのハイライトおよび警告バナーの制御
+      const banner = document.getElementById('attack-alert-banner');
+      const alertText = document.getElementById('attack-alert-text');
+
+      // まず全ての既存のハイライトを削除
+      document.querySelectorAll('.attack-target-pulsing').forEach(el => {
+        el.classList.remove('attack-target-pulsing');
+      });
+      banner.style.display = 'none';
+
+      if (gameState.current_attack) {
+        const attack = gameState.current_attack;
+
+        // 1. 赤点線枠の表示（ターゲットカードがある場合）
+        if (attack.target_uuid) {
+          if (attack.target_uuid === 'player') {
+            // ダイレクトアタック対象時のダイレクトアタックゾーン
+            const zone = document.getElementById('direct-attack-zone');
+            if (zone) zone.classList.add('attack-target-pulsing');
+          } else {
+            // クリーチャーまたはシールドカードのUUIDに一致するカード要素
+            const cardEl = document.querySelector(`.card[data-uuid="${attack.target_uuid}"]`);
+            if (cardEl) {
+              cardEl.classList.add('attack-target-pulsing');
+            }
+          }
+        }
+
+        // 2. 攻撃されたプレイヤー側でバナーメッセージを表示
+        if (attack.attacked_player_id === PLAYER_ID) {
+          alertText.textContent = attack.message || "攻撃されました！シールドか効果を使ってください。";
+          banner.style.display = 'flex';
+        }
+      }
+    }
+
+    function renderHand(hand) {
+      const container = document.getElementById('my-hand');
+      const existingHint = container.querySelector('.drop-zone-hint');
+      container.innerHTML = hand.map(card => createCardHTML(card, 'hand')).join('');
+    }
+
+    function renderOppHand(hand) {
+      const container = document.getElementById('opp-hand-zone');
+      if (!hand || hand.length === 0) {
+        container.innerHTML = '<span style="color:var(--text-dim);font-size:10px;">—</span>';
+        return;
+      }
+      container.innerHTML = hand.map(card => createCardHTML(card, 'opp-hand')).join('');
+      document.getElementById('opp-hand-label').textContent = hand.length;
+    }
+
+    function renderShieldZone(containerId, shields, isMine) {
+      const container = document.getElementById(containerId);
+      const hintHTML = isMine ? `<span class="drop-zone-hint" style="font-size: 9px; text-align: center; width: 100%; pointer-events: none; z-index: 4;">🛡️ シールド</span>` : `<span class="drop-zone-hint" style="font-size: 9px; text-align: center; width: 100%; pointer-events: none; z-index: 4;">🛡️ 相手シールド</span>`;
+
+      if (!shields || shields.length === 0) {
+        container.innerHTML = hintHTML || '<span style="color:var(--text-dim);font-size:10px;">—</span>';
+        return;
+      }
+
+      container.innerHTML = shields.map(card => {
+        const type = isMine ? 'shields' : 'opp-shields';
+        return createCardHTML(card, type);
+      }).join('') + hintHTML;
+    }
+
+    function renderBattleZone(containerId, cards, tappedList, isMine) {
+      const container = document.getElementById(containerId);
+
+      // ドロップヒントを保持
+      const hintEl = container.querySelector('.drop-zone-hint');
+      const hintHTML = hintEl ? hintEl.outerHTML : '';
+
+      if (!cards || cards.length === 0) {
+        container.innerHTML = hintHTML || '<span style="color:var(--text-dim);font-size:11px;">—</span>';
+        return;
+      }
+      container.innerHTML = cards.map(card => {
+        const isTapped = tappedList && tappedList.includes(card.uuid);
+        const isSick = card.summoning_sickness;
+        const type = isMine ? 'my-battle' : 'opp-battle';
+        return createCardHTML(card, type, isTapped, isSick);
+      }).join('') + hintHTML;
+    }
+
+    function renderManaZone(containerId, cards, tappedList) {
+      const container = document.getElementById(containerId);
+
+      const hintEl = container.querySelector('.drop-zone-hint');
+      const hintHTML = hintEl ? hintEl.outerHTML : '';
+
+      if (!cards || cards.length === 0) {
+        container.innerHTML = hintHTML || '<span style="color:var(--text-dim);font-size:10px;">—</span>';
+        return;
+      }
+      container.innerHTML = cards.map(card => {
+        const isTapped = tappedList && tappedList.includes(card.uuid);
+        return createCardHTML(card, 'mana', isTapped);
+      }).join('') + hintHTML;
+    }
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, function (m) {
+        switch (m) {
+          case '&': return '&amp;';
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '"': return '&quot;';
+          case "'": return '&#039;';
+          default: return m;
+        }
+      });
+    }
+
+    function renderLog(logs) {
+      const panel = document.getElementById('log-panel');
+      if (!logs || logs.length === 0) return;
+      panel.innerHTML = logs.map(l => `<div class="log-entry">▸ ${escapeHTML(l)}</div>`).join('');
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    // ============================================================
+    // カードHTML生成 (draggable)
+    // ============================================================
+    function createCardHTML(card, zone, isTapped = false, isSick = false) {
+      // ドラッグ可能判定 (手札、自分のバトルゾーン、墓地、山札閲覧、相手手札、シールド)
+      const isDraggable = (zone === 'hand' || zone === 'my-battle' || zone === 'graveyard' || zone === 'deck-view' || zone === 'opp-hand' || zone === 'shields') && gameState;
+
+      const draggableAttr = isDraggable ? 'draggable="true"' : '';
+      const sourceZone = zone === 'deck-view' ? 'deck' : zone;
+      const dragStart = isDraggable
+        ? `ondragstart="onCardDragStart(event, '${card.uuid}', '${sourceZone}')"`
+        : '';
+      const dragEnd = isDraggable
+        ? `ondragend="onCardDragEnd(event)"`
+        : '';
+
+      const clickHandler = `onclick="onCardClick(event, '${card.uuid}', '${zone}')"`;
+
+      // 共通クラス
+      let classes = `card`;
+      if (zone === 'mana') classes += ' mana-card';
+      if (isTapped) classes += ' tapped';
+      // if (isSick) classes += ' summoning-sick';
+
+      let sizeStyle = "";
+      if (zone === 'shields' || zone === 'opp-shields') {
+        classes += ' shield-card';
+        sizeStyle = 'width: 60px; height: 84px; font-size: 8px; flex-shrink: 0;';
+      }
+
+      // 1. 裏向き・非表示カードの処理
+      if (card.hidden) {
+        const isMine = (zone !== 'opp-hand' && zone !== 'opp-shields');
+        const sleeveURL = getSleeveURL(isMine);
+        let hiddenContent = "🂠";
+        let borderStyle = "rgba(255,255,255,0.08)";
+
+        if (zone === 'shields' || zone === 'opp-shields') {
+          hiddenContent = "🛡️";
+          borderStyle = "rgba(250,204,21,0.3)";
+        }
+
+        return `
+          <div class="${classes} hidden-card" ${draggableAttr} ${dragStart} ${dragEnd} ${clickHandler}
+               data-uuid="${card.uuid}" data-zone="${zone}"
+               style="background-image: url('${sleeveURL}'); background-size: cover; background-position: center; border-color: ${borderStyle}; cursor: grab; display: flex; align-items: center; justify-content: center; font-size: 16px; ${sizeStyle}">
+            <div style="background: rgba(0,0,0,0.35); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit;">
+              ${hiddenContent}
+            </div>
+          </div>
+        `;
+      }
+
+      // 2. 表向きカードの処理
+      const civ = (card.civilization || '').split(',')[0] || 'zero';
+      classes += ` civ-${civ}`;
+
+      const isCreature = card.card_type === 'creature';
+      const typeIcon = isCreature ? '⚔' : '📜';
+      const powerStr = card.power ? card.power.toLocaleString() : '';
+      const imageHTML = card.image ? `<img src="/static/cards/${card.image}" class="card-image" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; pointer-events:none;" />` : '';
+
+      return `
+        <div class="${classes}" ${draggableAttr} ${dragStart} ${dragEnd} ${clickHandler}
+             data-uuid="${card.uuid}" data-zone="${zone}"
+             title="${card.name}\n${card.text || ''}"
+             style="${sizeStyle}">
+          ${imageHTML}
+          <div class="card-overlay" style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; z-index:2; pointer-events:none;">
+            <div class="card-header" style="padding: 4px 6px; display: flex; justify-content: space-between; align-items: center; background: ${card.image ? 'rgba(0,0,0,0.3)' : 'transparent'};">
+              <div class="card-cost" style="${(zone === 'shields' || zone === 'opp-shields') ? 'width: 14px; height: 14px; font-size: 8px;' : ''}">${card.cost}</div>
+              <span class="card-type-icon" style="${(zone === 'shields' || zone === 'opp-shields') ? 'font-size: 8px;' : ''}">${typeIcon}</span>
+            </div>
+            ${card.image
+          ? `<div class="card-name-overlay" style="padding: 2px 4px; background: rgba(0,0,0,0.65); color: #fff; font-size: ${(zone === 'shields' || zone === 'opp-shields') ? '6px' : '8px'}; font-weight: 700; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${card.name}</div>`
+          : `<div class="card-name" style="${(zone === 'shields' || zone === 'opp-shields') ? 'font-size: 8px;' : ''}">${card.name}</div>`
+        }
+            <div class="card-footer" style="padding: 4px 6px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.45); border-top: 1px solid rgba(255,255,255,0.05); ${(zone === 'shields' || zone === 'opp-shields') ? 'display: none;' : ''}">
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 50px;">${card.race || ''}</span>
+              <span class="card-power">${powerStr}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============================================================
+    // ドラッグ＆ドロップ
+    // ============================================================
+
+    function onCardDragStart(e, uuid, source) {
+      dragCardUuid = uuid;
+      dragCardSource = source;
+
+      // カードデータを取得
+      if (source === 'hand') {
+        dragCardData = gameState.you.hand.find(c => c.uuid === uuid);
+      } else if (source === 'my-battle') {
+        dragCardData = gameState.you.battle_zone.find(c => c.uuid === uuid);
+      } else if (source === 'graveyard') {
+        dragCardData = gameState.you.graveyard.find(c => c.uuid === uuid);
+        closeGraveModal();
+      } else if (source === 'opp-graveyard') {
+        dragCardData = gameState.opponent ? gameState.opponent.graveyard.find(c => c.uuid === uuid) : null;
+      } else if (source === 'deck') {
+        dragCardData = gameState.you.deck.find(c => c.uuid === uuid);
+        closeDeckModal();
+      } else if (source === 'opp-hand') {
+        dragCardData = gameState.opponent ? gameState.opponent.hand.find(c => c.uuid === uuid) : null;
+      } else if (source === 'shields') {
+        dragCardData = gameState.you.shields.find(c => c.uuid === uuid);
+      }
+
+      // ドラッグデータを設定
+      e.dataTransfer.setData('text/plain', uuid);
+      e.dataTransfer.effectAllowed = 'move';
+
+      // ドラッグ中のカードを半透明に
+      requestAnimationFrame(() => {
+        e.target.classList.add('dragging');
+      });
+    }
+
+    function onCardDragEnd(e) {
+      e.target.classList.remove('dragging');
+      dragCardUuid = null;
+      dragCardSource = null;
+      dragCardData = null;
+
+      // 全てのドロップゾーンのハイライトをクリア
+      clearAllDropHighlights();
+    }
+
+    function onDeckDragStart(e) {
+      if (!gameState || !gameState.you.deck || gameState.you.deck.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const topCard = gameState.you.deck[gameState.you.deck.length - 1];
+      dragCardUuid = topCard.uuid;
+      dragCardSource = 'deck';
+      dragCardData = topCard;
+
+      e.dataTransfer.setData('text/plain', topCard.uuid);
+      e.dataTransfer.effectAllowed = 'move';
+
+      requestAnimationFrame(() => {
+        document.getElementById('my-deck-pile').classList.add('dragging');
+      });
+    }
+
+    function onDeckDragEnd(e) {
+      document.getElementById('my-deck-pile').classList.remove('dragging');
+      dragCardUuid = null;
+      dragCardSource = null;
+      dragCardData = null;
+      clearAllDropHighlights();
+    }
+
+    function showGraveModal(isMine = true) {
+      if (!gameState) return;
+      const player = isMine ? gameState.you : gameState.opponent;
+      if (!player || !player.graveyard) return;
+      const grave = player.graveyard;
+      const container = document.getElementById('grave-modal-cards');
+      const title = document.querySelector('#grave-modal h3');
+
+      title.textContent = `💀 ${isMine ? '自分' : '相手'}の墓地の中身`;
+
+      if (grave.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-dim);padding:20px;">墓地が空です</div>';
+      } else {
+        const type = isMine ? 'graveyard' : 'opp-graveyard';
+        container.innerHTML = grave.map(card => createCardHTML(card, type)).join('');
+      }
+
+      document.getElementById('grave-modal').classList.add('visible');
+    }
+
+    function closeGraveModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('grave-modal').classList.remove('visible');
+    }
+
+    // ============================================================
+    // 高度な機能拡張：インタラクティブ・マニュアル・サンドボックスJS
+    // ============================================================
+
+    // ログパネルの折りたたみ状態
+    let isLogCollapsed = false;
+
+    function toggleLogPanel(e) {
+      if (e) e.stopPropagation();
+      isLogCollapsed = !isLogCollapsed;
+      const panel = document.getElementById('log-panel');
+      const btn = document.getElementById('log-toggle-btn');
+      const entries = document.getElementById('log-entries');
+
+      if (isLogCollapsed) {
+        panel.style.transform = 'translateX(240px)';
+        btn.textContent = '◀';
+        if (entries) entries.style.display = 'none';
+      } else {
+        panel.style.transform = 'translateX(0)';
+        btn.textContent = '▶';
+        if (entries) entries.style.display = 'block';
+        panel.scrollTop = panel.scrollHeight;
+      }
+    }
+
+    function handleLogPanelClick(e) {
+      // 省略状態の場合のみ、クリックで再展開する
+      if (isLogCollapsed) {
+        toggleLogPanel(e);
+      }
+    }
+
+    function renderLog(logs) {
+      const panel = document.getElementById('log-panel');
+      if (!logs || logs.length === 0) return;
+
+      // トグルボタン付きのログヘッダー
+      panel.innerHTML = `
+        <div style="position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; z-index: 5; background: rgba(13,18,32,0.95);">
+          <span style="font-weight: 700; font-size: 10px; color: var(--accent);">💬 対戦ログ</span>
+          <button onclick="toggleLogPanel(event)" id="log-toggle-btn" style="border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 11px; padding: 2px 6px;">${isLogCollapsed ? '◀' : '▶'}</button>
+        </div>
+        <div id="log-entries" style="display: ${isLogCollapsed ? 'none' : 'block'};">
+          ${logs.map(l => `<div class="log-entry">▸ ${l}</div>`).join('')}
+        </div>
+      `;
+
+      if (!isLogCollapsed) {
+        panel.scrollTop = panel.scrollHeight;
+      }
+    }
+
+    // UUIDからカード名を逆引きするヘルパー
+    function getCardNameByUuid(uuid) {
+      if (!gameState) return 'カード';
+      const playersList = [gameState.you];
+      if (gameState.opponent) playersList.push(gameState.opponent);
+      for (const p of playersList) {
+        for (const zone of [p.hand, p.battle_zone, p.mana_zone, p.graveyard, p.shields, p.deck]) {
+          if (!zone) continue;
+          const card = zone.find(c => c.uuid === uuid);
+          if (card && card.name) return card.name;
+        }
+      }
+      return 'カード';
+    }
+
+    // ==========================================
+    // コンテキストメニュー & 手動インタラクション
+    // ==========================================
+
+    function onCardClick(e, uuid, zone) {
+      e.stopPropagation();
+
+      // --- 攻撃対象選択モード時の処理 ---
+      if (attackSourceUuid) {
+        if (zone === 'opp-battle' || zone === 'opp-shields') {
+          handleAttackTargetSelected(uuid, zone);
+          return;
+        } else {
+          showToast('無効な攻撃対象です。シールドまたは相手クリーチャーを選択してください', 'info');
+          cancelAttackMode();
+          return;
+        }
+      }
+
+      // マナゾーンのカードは左クリックで即時タップトグル
+      if (zone === 'mana') {
+        sendAction({
+          action: 'toggle_tap',
+          card_uuid: uuid,
+          zone: 'mana'
+        });
+        return;
+      }
+
+      // 墓地のカードはクリックで即モーダル展開
+      if (zone === 'graveyard' || zone === 'opp-graveyard') {
+        showGraveModal(zone === 'graveyard');
+        return;
+      }
+
+      // 自分自身が操作可能なカードのみメニューを起動する（マナは即時トグルのため除外）
+      if (zone === 'hand' || zone === 'my-battle' || zone === 'shields') {
+        if (zone === 'hand') {
+          const cardEl = document.querySelector(`.card[data-uuid="${uuid}"]`);
+          if (cardEl) {
+            const isAlreadySelected = cardEl.classList.contains('selected-hand-card');
+
+            // すべての手札カードの選択状態を解除
+            document.querySelectorAll('#my-hand .card').forEach(el => {
+              el.classList.remove('selected-hand-card');
+            });
+
+            if (!isAlreadySelected) {
+              // 1回目クリック: 浮き上がらせて選択状態（全身表示）にする
+              cardEl.classList.add('selected-hand-card');
+            } else {
+              // 2回目クリック: 既に選択状態であればコンテキストメニューを起動
+              showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
+            }
+          }
+        } else {
+          showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
+        }
+      }
+    }
+
+    function showCardInteractionMenu(x, y, uuid, zone) {
+      clickedCardUuid = uuid;
+      clickedCardZone = zone;
+
+      const menu = document.getElementById('card-context-menu');
+      menu.style.display = 'block';
+
+      // 画面端からはみ出さないように配置
+      const menuWidth = 150;
+      const menuHeight = 120;
+      const finalX = Math.min(x, window.innerWidth - menuWidth - 10);
+      const finalY = Math.min(y, window.innerHeight - menuHeight - 10);
+
+      menu.style.left = `${finalX}px`;
+      menu.style.top = `${finalY}px`;
+
+      // ゾーンに応じたメニューアイテムの切り替え
+      document.getElementById('menu-tap').style.display = (zone === 'my-battle' || zone === 'mana') ? 'block' : 'none';
+      document.getElementById('menu-attack').style.display = (zone === 'my-battle') ? 'block' : 'none';
+      document.getElementById('menu-effect').style.display = 'block'; // どのカード効果でも宣言可能
+    }
+
+    function closeCardInteractionMenu() {
+      document.getElementById('card-context-menu').style.display = 'none';
+    }
+
+    // クリック以外でメニューを閉じる ＆ 手札選択状態の解除
+    document.addEventListener('click', (evt) => {
+      closeCardInteractionMenu();
+
+      // 手札のカード自体のクリックでなければ、すべての手札の選択状態を解除する
+      if (!evt.target.closest('#my-hand .card')) {
+        document.querySelectorAll('#my-hand .card').forEach(el => {
+          el.classList.remove('selected-hand-card');
+        });
+      }
+    });
+
+    // --- メニューアクションハンドラ ---
+
+    function handleMenuTap() {
+      if (!clickedCardUuid || !clickedCardZone) return;
+      sendAction({
+        action: 'toggle_tap',
+        card_uuid: clickedCardUuid,
+        zone: clickedCardZone === 'my-battle' ? 'battle' : 'mana'
+      });
+      closeCardInteractionMenu();
+    }
+
+    function handleMenuEffect() {
+      if (!clickedCardUuid) return;
+
+      // UUIDからカードオブジェクトを検索
+      let card = null;
+      if (gameState) {
+        const playersList = [gameState.you];
+        if (gameState.opponent) playersList.push(gameState.opponent);
+        for (const p of playersList) {
+          for (const zone of [p.hand, p.battle_zone, p.mana_zone, p.graveyard, p.shields]) {
+            if (!zone) continue;
+            card = zone.find(c => c.uuid === clickedCardUuid);
+            if (card) break;
+          }
+          if (card) break;
+        }
+      }
+
+      const cardName = card ? card.name : 'カード';
+      document.getElementById('effect-declare-card-name').textContent = cardName;
+
+      const textarea = document.getElementById('effect-declare-text');
+      textarea.value = '';
+
+      // 効果選択肢のパースとレンダリング
+      const choicesContainer = document.getElementById('effect-choices-container');
+      const choicesList = document.getElementById('effect-choices-list');
+      choicesList.innerHTML = '';
+
+      if (card && card.text) {
+        // 改行で分割し、■ または > で始まる行を抽出
+        const lines = card.text.split(/[\r\n]+/);
+        const parsedChoices = [];
+        lines.forEach(line => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('■') || trimmed.startsWith('>')) {
+            parsedChoices.push(trimmed);
+          }
+        });
+
+        if (parsedChoices.length > 0) {
+          choicesContainer.style.display = 'block';
+          parsedChoices.forEach((choice, idx) => {
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.alignItems = 'flex-start';
+            div.style.gap = '6px';
+            div.style.fontSize = '11px';
+            div.style.color = 'var(--text)';
+            div.style.marginBottom = '4px';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = choice;
+            checkbox.id = `eff-choice-${idx}`;
+            checkbox.style.marginTop = '2.5px';
+            checkbox.style.cursor = 'pointer';
+
+            checkbox.addEventListener('change', () => {
+              updateDeclareTextFromCheckboxes();
+            });
+
+            const label = document.createElement('label');
+            label.htmlFor = `eff-choice-${idx}`;
+            label.textContent = choice;
+            label.style.cursor = 'pointer';
+            label.style.lineHeight = '1.3';
+
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            choicesList.appendChild(div);
+          });
+        } else {
+          choicesContainer.style.display = 'none';
+        }
+      } else {
+        choicesContainer.style.display = 'none';
+      }
+
+      document.getElementById('effect-declare-modal').classList.add('visible');
+      closeCardInteractionMenu();
+    }
+
+    function updateDeclareTextFromCheckboxes() {
+      const checkboxes = document.querySelectorAll('#effect-choices-list input[type="checkbox"]');
+      const selected = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) {
+          selected.push(cb.value);
+        }
+      });
+      document.getElementById('effect-declare-text').value = selected.join('\n');
+    }
+
+    function submitEffectDeclare() {
+      const text = document.getElementById('effect-declare-text').value.trim();
+      if (!text) {
+        showToast('効果内容を入力してください', 'info');
+        return;
+      }
+      hasDeclaredEffect = true;
+      sendAction({
+        action: 'declare_effect',
+        card_uuid: clickedCardUuid,
+        text: text
+      });
+      closeEffectDeclareModal();
+    }
+
+    function closeEffectDeclareModal() {
+      document.getElementById('effect-declare-modal').classList.remove('visible');
+      clickedCardUuid = null;
+    }
+
+    // ==========================================
+    // クリックによるターゲット攻撃システム
+    // ==========================================
+
+    function handleMenuAttack() {
+      if (!clickedCardUuid) return;
+
+      attackSourceUuid = clickedCardUuid;
+      closeCardInteractionMenu();
+
+      showToast('⚔️ 攻撃対象（相手クリーチャーまたは相手のシールド）をクリックしてください', 'info');
+
+      // 相手のクリーチャーとシールドゾーンを光らせる（赤色の脈動ハイライト）
+      document.querySelectorAll('#opp-battle-zone .card, #opp-shield-zone .card').forEach(card => {
+        card.classList.add('drag-over-attack');
+      });
+    }
+
+    function handleAttackTargetSelected(targetUuid, targetZone) {
+      if (!attackSourceUuid) return;
+
+      if (targetZone === 'opp-battle') {
+        // クリーチャーへの攻撃
+        sendAction({
+          action: 'attack_creature',
+          attacker_uuid: attackSourceUuid,
+          target_uuid: targetUuid
+        });
+      } else if (targetZone === 'opp-shields') {
+        // プレイヤーへの攻撃（シールドブレイク）
+        sendAction({
+          action: 'attack_player',
+          attacker_uuid: attackSourceUuid
+        });
+      }
+
+      cancelAttackMode();
+    }
+
+    function cancelAttackMode() {
+      attackSourceUuid = null;
+      // ハイライトをクリーンアップ
+      document.querySelectorAll('#opp-battle-zone .card, #opp-shield-zone .card').forEach(card => {
+        card.classList.remove('drag-over-attack');
+      });
+    }
+
+    // ==========================================
+    // 山札配置選択モーダル
+    // ==========================================
+
+    function showDeckDropModal(uuid, fromZone) {
+      pendingDropUuid = uuid;
+      pendingDropFromZone = fromZone;
+      pendingDropToZone = 'deck';
+
+      const cardName = getCardNameByUuid(uuid);
+      document.getElementById('deck-drop-card-name').textContent = cardName;
+      document.getElementById('deck-drop-index').value = 1;
+
+      document.getElementById('deck-drop-modal').classList.add('visible');
+    }
+
+    function submitDeckDrop(position) {
+      let indexVal = null;
+      if (position === 'index') {
+        const val = parseInt(document.getElementById('deck-drop-index').value);
+        if (isNaN(val) || val < 1) {
+          showToast('有効な枚数目を指定してください', 'info');
+          return;
+        }
+        indexVal = val;
+      }
+
+      sendAction({
+        action: 'move_card',
+        card_uuid: pendingDropUuid,
+        from_zone: pendingDropFromZone,
+        to_zone: 'deck',
+        position: position,
+        index: indexVal
+      });
+
+      closeDeckDropModal();
+    }
+
+    function closeDeckDropModal() {
+      document.getElementById('deck-drop-modal').classList.remove('visible');
+      pendingDropUuid = null;
+      pendingDropFromZone = null;
+      pendingDropToZone = null;
+    }
+
+    // ==========================================
+    // バトル解決（手動処理）
+    // ==========================================
+
+    function handleBattleTrigger(data) {
+      const { attacker, target, result } = data;
+
+      // 自分が負けたプレイヤーであるかを判定
+      let isLoser = false;
+      let loserCardUuid = null;
+      let loserCardName = "";
+
+      if (result === 'attacker_win') {
+        if (target.owner_id === PLAYER_ID) {
+          isLoser = true;
+          loserCardUuid = target.uuid;
+          loserCardName = target.name;
+        }
+      } else if (result === 'target_win') {
+        if (attacker.owner_id === PLAYER_ID) {
+          isLoser = true;
+          loserCardUuid = attacker.uuid;
+          loserCardName = attacker.name;
+        }
+      } else if (result === 'draw') {
+        if (target.owner_id === PLAYER_ID) {
+          isLoser = true;
+          loserCardUuid = target.uuid;
+          loserCardName = target.name;
+        } else if (attacker.owner_id === PLAYER_ID) {
+          isLoser = true;
+          loserCardUuid = attacker.uuid;
+          loserCardName = attacker.name;
+        }
+      }
+
+      if (isLoser && loserCardUuid) {
+        pendingBattleCardUuid = loserCardUuid;
+        document.getElementById('battle-resolution-msg').textContent = `「${loserCardName}」がバトルに敗北（破壊対象）しました。`;
+        document.getElementById('battle-resolution-modal').classList.add('visible');
+      } else {
+        showToast('バトルが発生しました。相手プレイヤーの解決操作を待っています...', 'info');
+      }
+    }
+
+    function submitBattleResolution(destination) {
+      if (!pendingBattleCardUuid) return;
+
+      if (destination === 'stay') {
+        // 踏みとどまる場合はログに効果宣言をブロードキャストする
+        const cardName = getCardNameByUuid(pendingBattleCardUuid);
+        hasDeclaredEffect = true;
+        sendAction({
+          action: 'declare_effect',
+          card_uuid: pendingBattleCardUuid,
+          text: '破壊される代わりに、バトルゾーンに踏みとどまりました。'
+        });
+      } else {
+        // 指定の場所に移動 (move_card)
+        // 敗北クリーチャーは自分のバトルゾーンにある
+        sendAction({
+          action: 'move_card',
+          card_uuid: pendingBattleCardUuid,
+          from_zone: 'battle',
+          to_zone: destination
+        });
+      }
+
+      closeBattleResolutionModal();
+    }
+
+    function closeBattleResolutionModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('battle-resolution-modal').classList.remove('visible');
+      pendingBattleCardUuid = null;
+    }
+
+    // ==========================================
+    // シールド配置選択モーダル
+    // ==========================================
+
+    function showShieldDropModal(uuid, fromZone, toZone) {
+      pendingDropUuid = uuid;
+      pendingDropFromZone = fromZone;
+      pendingDropToZone = toZone; // 'shields' or 'opp-shields'
+
+      const cardName = getCardNameByUuid(uuid);
+      document.getElementById('shield-drop-card-name').textContent = cardName;
+
+      document.getElementById('shield-drop-modal').classList.add('visible');
+    }
+
+    function submitShieldDrop(faceUp) {
+      sendAction({
+        action: 'move_card',
+        card_uuid: pendingDropUuid,
+        from_zone: pendingDropFromZone,
+        to_zone: pendingDropToZone,
+        face_up: faceUp
+      });
+
+      closeShieldDropModal();
+    }
+
+    function closeShieldDropModal() {
+      document.getElementById('shield-drop-modal').classList.remove('visible');
+      pendingDropUuid = null;
+      pendingDropFromZone = null;
+      pendingDropToZone = null;
+    }
+
+
+
+    // ==========================================
+    // マナチャージ選択モーダル
+    // ==========================================
+
+    function showManaDropModal(uuid, fromZone) {
+      pendingDropUuid = uuid;
+      pendingDropFromZone = fromZone;
+
+      const cardName = getCardNameByUuid(uuid);
+      document.getElementById('mana-drop-card-name').textContent = cardName;
+
+      document.getElementById('mana-drop-modal').classList.add('visible');
+    }
+
+    function submitManaDrop(type) {
+      if (type === 'charge') {
+        sendAction({ action: 'charge_mana', card_uuid: pendingDropUuid });
+      } else if (type === 'move') {
+        sendAction({
+          action: 'move_card',
+          card_uuid: pendingDropUuid,
+          from_zone: pendingDropFromZone,
+          to_zone: 'mana'
+        });
+      }
+
+      closeManaDropModal();
+    }
+
+    function closeManaDropModal() {
+      document.getElementById('mana-drop-modal').classList.remove('visible');
+      pendingDropUuid = null;
+      pendingDropFromZone = null;
+    }
+
+    function clearAllDropHighlights() {
+      document.querySelectorAll('.drop-zone, .attack-target-zone').forEach(el => {
+        el.classList.remove('drag-over', 'drag-over-mana', 'drag-over-attack');
+      });
+      // 相手バトルゾーンのカードのハイライトもクリア
+      document.querySelectorAll('#opp-battle-zone .card').forEach(el => {
+        el.classList.remove('drag-over-attack');
+      });
+    }
+
+    // ============================================================
+    // ドロップゾーン イベント設定
+    // ============================================================
+
+    function setupDropZones() {
+      // すべてのドロップゾーンにイベントを設定
+      document.querySelectorAll('.drop-zone, .attack-target-zone').forEach(zone => {
+        zone.addEventListener('dragover', onZoneDragOver);
+        zone.addEventListener('dragenter', onZoneDragEnter);
+        zone.addEventListener('dragleave', onZoneDragLeave);
+        zone.addEventListener('drop', onZoneDrop);
+      });
+    }
+
+    function onZoneDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function onZoneDragEnter(e) {
+      e.preventDefault();
+      const zone = e.currentTarget;
+      const action = zone.dataset.dropAction;
+
+      // ドラッグ元に応じてハイライトクラスを変更
+      if (action === 'charge_mana') {
+        zone.classList.add('drag-over-mana');
+      } else if (action === 'attack_player' && dragCardSource === 'my-battle') {
+        zone.classList.add('drag-over-attack');
+      } else if (action === 'attack_creature' && dragCardSource === 'my-battle') {
+        zone.classList.add('drag-over-attack');
+      } else if (action === 'summon_or_spell') {
+        zone.classList.add('drag-over');
+      } else if (action === 'to_graveyard' || action === 'to_opp_graveyard') {
+        zone.classList.add('drag-over-attack');
+      } else if (action === 'to_deck') {
+        zone.classList.add('drag-over');
+      } else if (action === 'to_hand') {
+        zone.classList.add('drag-over');
+      } else if (action === 'to_shields' || action === 'to_opp_shields') {
+        zone.classList.add('drag-over-mana');
+      } else if (action === 'to_opp_hand') {
+        zone.classList.add('drag-over');
+      }
+    }
+
+    function onZoneDragLeave(e) {
+      // relatedTarget がゾーン内の子要素なら無視
+      if (e.currentTarget.contains(e.relatedTarget)) return;
+      e.currentTarget.classList.remove('drag-over', 'drag-over-mana', 'drag-over-attack');
+    }
+
+    function onZoneDrop(e) {
+      e.preventDefault();
+      clearAllDropHighlights();
+
+      const zone = e.currentTarget;
+      const action = zone.dataset.dropAction;
+      const uuid = e.dataTransfer.getData('text/plain');
+
+      if (!uuid || !action) return;
+
+      // --- 1. ドロップ先が墓地 (to_graveyard / to_opp_graveyard) の場合 ---
+      if (action === 'to_graveyard') {
+        sendAction({ action: 'move_card', card_uuid: uuid, from_zone: dragCardSource, to_zone: 'graveyard' });
+      } else if (action === 'to_opp_graveyard') {
+        sendAction({ action: 'move_card', card_uuid: uuid, from_zone: dragCardSource, to_zone: 'opp-graveyard' });
+      }
+      // --- 2. ドロップ先が山札 (to_deck) の場合：モーダルを起動して位置を決定 ---
+      else if (action === 'to_deck') {
+        showDeckDropModal(uuid, dragCardSource);
+      }
+      // --- 3. ドロップ先が手札 (to_hand) の場合 ---
+      else if (action === 'to_hand') {
+        sendAction({ action: 'move_card', card_uuid: uuid, from_zone: dragCardSource, to_zone: 'hand' });
+      }
+      // --- 4. ドロップ先が相手手札 (to_opp_hand) の場合 ---
+      else if (action === 'to_opp_hand') {
+        sendAction({ action: 'move_card', card_uuid: uuid, from_zone: dragCardSource, to_zone: 'opp-hand' });
+      }
+      // --- 5. ドロップ先がシールドゾーン の場合：モーダルを起動して表裏を決定 ---
+      else if (action === 'to_shields' || action === 'to_opp_shields') {
+        const targetZone = action === 'to_shields' ? 'shields' : 'opp-shields';
+        showShieldDropModal(uuid, dragCardSource, targetZone);
+      }
+      // --- 6. ドラッグ元が山札 (deck) または墓地 (graveyard) または相手墓地 (opp-graveyard) またはシールド (shields) または相手手札 (opp-hand) の場合 ---
+      // 他のすべての通常ゾーン（バトル、マナ）へのドロップは move_card を使用
+      else if (dragCardSource === 'deck' || dragCardSource === 'graveyard' || dragCardSource === 'opp-graveyard' || dragCardSource === 'shields' || dragCardSource === 'opp-hand') {
+        let toZone = null;
+        if (action === 'summon_or_spell') {
+          toZone = 'battle';
+        } else if (action === 'charge_mana') {
+          toZone = 'mana';
+        }
+
+        if (toZone) {
+          sendAction({ action: 'move_card', card_uuid: uuid, from_zone: dragCardSource, to_zone: toZone });
+        }
+      }
+      // --- 7. 手札からバトルゾーンへの召喚：登場選択モーダルなしで、マナタップチェック後に召喚 ---
+      else if (action === 'summon_or_spell' && dragCardSource === 'hand') {
+        const isMyTurn = gameState.turn_player_id === PLAYER_ID;
+        if (!isMyTurn) {
+          showToast('あなたのターンではありません', 'error');
+          return;
+        }
+
+        // ドロップされた手札カードのオブジェクトを探す
+        const card = gameState.you.hand.find(c => c.uuid === uuid);
+        if (!card) {
+          showToast('手札にカードが見つかりません', 'error');
+          return;
+        }
+
+        const cost = card.cost || 0;
+        const tappedCount = (gameState.you.tapped_mana || []).length;
+
+        // 効果宣言時、または必要なコスト以上のマナがすでにタップされている場合のみ登場可能
+        if (hasDeclaredEffect || tappedCount >= cost) {
+          // 効果宣言を消費
+          if (hasDeclaredEffect) {
+            hasDeclaredEffect = false;
+            showToast('効果によりコストを支払わずに登場させました', 'success');
+          } else {
+            showToast('コスト分のマナがタップされていることを確認し、登場させました', 'success');
+          }
+
+          // 召喚 or 呪文詠唱アクションを送信
+          if (card.card_type === 'spell') {
+            sendAction({ action: 'cast_spell', card_uuid: uuid, target_uuid: null });
+          } else {
+            sendAction({ action: 'summon', card_uuid: uuid });
+          }
+        } else {
+          showToast(`マナが足りません。先にマナゾーンのカードをクリックしてタップしてください（必要タップマナ数: ${cost}, 現在タップマナ数: ${tappedCount}）`, 'error');
+        }
+      }
+      // --- 8. 手札からマナゾーンへのチャージ：モーダルなしで即時通常チャージ ＆ 2回目以降は効果宣言時のみ ---
+      else if (action === 'charge_mana' && dragCardSource === 'hand') {
+        const hasCharged = gameState.you.has_charged_mana;
+        const isMyTurn = gameState.turn_player_id === PLAYER_ID;
+
+        if (!isMyTurn) {
+          showToast('あなたのターンではありません', 'error');
+          return;
+        }
+
+        if (!hasCharged) {
+          // 1回目：通常マナチャージ（選択肢モーダルなしで即時チャージ）
+          sendAction({ action: 'charge_mana', card_uuid: uuid });
+        } else {
+          // 2回目以降：追加マナチャージ（効果宣言フラグが立っているときのみ許可、選択肢モーダルなし）
+          if (hasDeclaredEffect) {
+            sendAction({
+              action: 'move_card',
+              card_uuid: uuid,
+              from_zone: dragCardSource,
+              to_zone: 'mana'
+            });
+            hasDeclaredEffect = false; // フラグを消費
+            showToast('効果によりマナを追加チャージしました', 'success');
+          } else {
+            showToast('このターンは既にマナチャージしています。カードの効果を宣言したときのみ追加でマナに置くことができます。', 'error');
+          }
+        }
+      }
+      // --- 9. クリーチャーでの攻撃・ダイレクトアタック ---
+      else if (action === 'attack_player' && dragCardSource === 'my-battle') {
+        sendAction({ action: 'attack_player', attacker_uuid: uuid });
+      }
+      else if (action === 'attack_creature' && dragCardSource === 'my-battle') {
+        const targetCard = findCardElementAtPoint(e.clientX, e.clientY, 'opp-battle-zone');
+        if (targetCard) {
+          sendAction({
+            action: 'attack_creature',
+            attacker_uuid: uuid,
+            target_uuid: targetCard,
+          });
+        } else {
+          const oppBattle = gameState.opponent ? gameState.opponent.battle_zone : [];
+          if (oppBattle.length === 1) {
+            sendAction({
+              action: 'attack_creature',
+              attacker_uuid: uuid,
+              target_uuid: oppBattle[0].uuid,
+            });
+          } else if (oppBattle.length > 1) {
+            showToast('攻撃先の相手クリーチャーにドロップしてください', 'info');
+          } else {
+            showToast('相手のバトルゾーンにクリーチャーがいません', 'info');
+          }
+        }
+      }
+
+      dragCardUuid = null;
+      dragCardSource = null;
+      dragCardData = null;
+    }
+
+    // 相手バトルゾーンの特定カード要素を座標から探す
+    function findCardElementAtPoint(x, y, containerId) {
+      const elements = document.elementsFromPoint(x, y);
+      for (const el of elements) {
+        const card = el.closest('.card[data-zone="opp-battle"]');
+        if (card && card.dataset.uuid) {
+          return card.dataset.uuid;
+        }
+      }
+      return null;
+    }
+
+    // ============================================================
+    // アクション送信
+    // ============================================================
+    function sendAction(action) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(action));
+      }
+    }
+
+    function endTurn() {
+      hasDeclaredEffect = false;
+      sendAction({ action: 'end_turn' });
+    }
+
+    // ============================================================
+    // 勝敗表示
+    // ============================================================
+    function showResult(state) {
+      const overlay = document.getElementById('overlay-result');
+      overlay.classList.remove('hidden');
+
+      const isWinner = state.winner === PLAYER_ID;
+      if (isWinner) {
+        overlay.classList.add('result-win');
+        overlay.classList.remove('result-lose');
+        document.getElementById('result-title').textContent = '🏆 勝利！';
+        document.getElementById('result-message').textContent = 'おめでとうございます！';
+      } else {
+        overlay.classList.add('result-lose');
+        overlay.classList.remove('result-win');
+        document.getElementById('result-title').textContent = '💀 敗北...';
+        document.getElementById('result-message').textContent = '次は勝てるはず！';
+      }
+    }
+
+    // ============================================================
+    // ============================================================
+    // 山札パイル表示
+    // ============================================================
+    function renderDeckPile(pileId, countId, count) {
+      const pile = document.getElementById(pileId);
+      const countEl = document.getElementById(countId);
+      countEl.textContent = count;
+      if (count === 0) {
+        pile.classList.add('empty');
+      } else {
+        pile.classList.remove('empty');
+      }
+    }
+
+    // ============================================================
+    // 墓地パイル表示（表向きスプレッド＆省略トグル対応）
+    // ============================================================
+    function renderGravePile(containerId, countId, cards, isMine) {
+      const container = document.getElementById(containerId);
+      const countEl = document.getElementById(countId);
+      if (!container || !countEl) return;
+
+      const count = cards ? cards.length : 0;
+      countEl.textContent = count;
+
+      // 墓地をクリックした際にモーダルを起動
+      container.onclick = (e) => {
+        if (e.target.classList.contains('grave-toggle-badge')) return;
+        showGraveModal(isMine);
+      };
+      container.style.cursor = 'pointer';
+
+      if (count === 0) {
+        container.innerHTML = `
+          <div class="grave-empty-slot" style="width:50px; height:70px; border: 1.5px dashed var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:10px;">
+            💀 空
+          </div>
+        `;
+        return;
+      }
+
+      // トグル状態の取得 (Collapsed = 省略モード)
+      const isCollapsed = container.dataset.collapsed !== 'false';
+
+      // 表示件数の決定 (省略モード時は最新4枚のみ表示)
+      const displayLimit = 4;
+      const displayCards = isCollapsed ? cards.slice(-displayLimit) : cards;
+      const hiddenCount = cards.length - displayCards.length;
+
+      // 16pxずつ縦にずらして重ねるコンテナHTML
+      const containerHeight = 70 + (displayCards.length - 1) * 16;
+      let html = `<div class="grave-spread-container" style="position: relative; width: 50px; height: ${containerHeight}px; min-height: 70px; display: flex; flex-direction: column;">`;
+
+      displayCards.forEach((card, idx) => {
+        const offsetTop = idx * 16;
+        const type = isMine ? 'graveyard' : 'opp-graveyard';
+
+        // カードHTMLを生成
+        const cardHTML = createCardHTML(card, type);
+
+        // 生成したHTMLに absolute スタイルと z-index, offsetTop を埋め込む
+        const styledCardHTML = cardHTML.replace(
+          'class="card',
+          `style="position: absolute; top: ${offsetTop}px; left: 0; z-index: ${idx + 1}; cursor: grab; width: 50px; height: 70px; font-size: 8px; flex-shrink: 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.5);" class="card`
+        );
+
+        html += styledCardHTML;
+      });
+
+      // トグアルバッジの追加
+      if (cards.length > displayLimit) {
+        const badgeText = isCollapsed ? `+${hiddenCount}枚` : `折りたたむ`;
+        html += `
+          <div onclick="toggleGraveCollapse(event, '${containerId}')" class="grave-toggle-badge" style="position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; font-size: 8px; padding: 1px 6px; border-radius: 8px; font-weight: 700; cursor: pointer; z-index: 100; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+            ${badgeText}
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    function toggleGraveCollapse(e, containerId) {
+      if (e) e.stopPropagation();
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const isCollapsed = container.dataset.collapsed !== 'false';
+      container.dataset.collapsed = isCollapsed ? 'false' : 'true';
+      renderGame();
+    }
+
+    // ============================================================
+    // 山札モーダル（デバッグ用）
+    // ============================================================
+    function showDeckModal() {
+      if (!gameState || !gameState.you.deck) return;
+      const deck = gameState.you.deck;
+      const container = document.getElementById('deck-modal-cards');
+
+      if (deck.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-dim);padding:20px;">山札が空です</div>';
+      } else {
+        container.innerHTML = deck.map(card => createCardHTML(card, 'deck-view')).join('');
+      }
+
+      document.getElementById('deck-modal').classList.add('visible');
+    }
+
+    function closeDeckModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('deck-modal').classList.remove('visible');
+    }
+
+    // ============================================================
+    // Toast
+    // ============================================================
+    function showToast(message, type = 'error') {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // ============================================================
+    // 初期化
+    // ============================================================
+    connect();
+    setupDropZones();
+
+    // ============================================================
+    // 待機キャンセル
+    // ============================================================
+    function cancelWaiting() {
+      if (ws) {
+        ws.close();
+      }
+      location.href = '/';
+    }
+
+    // ============================================================
+    // アバター動的ロード・プロフィール表示
+    // ============================================================
+    const avatarCache = {};
+
+    function renderAvatar(avatar, element) {
+      if (!avatar) {
+        element.innerHTML = '👤';
+        return;
+      }
+      if (avatar.startsWith('image:')) {
+        const filename = avatar.replace('image:', '');
+        element.innerHTML = `<img src="/static/avatars/${filename}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" />`;
+      } else {
+        element.innerHTML = avatar;
+      }
+    }
+
+    async function updateAvatarEmoji(username, elementId) {
+      if (!username || username === '対戦相手' || username === '???') return;
+      const el = document.getElementById(elementId);
+      if (!el) return;
+
+      if (avatarCache[username]) {
+        renderAvatar(avatarCache[username], el);
+        return;
+      }
+      try {
+        const res = await fetch(`/get_profile/${encodeURIComponent(username)}`);
+        if (res.ok) {
+          const profile = await res.json();
+          avatarCache[username] = profile.avatar || '👤';
+          renderAvatar(avatarCache[username], el);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // プロフィール状態
+    let currentProfileUser = '';
+    let selectedAvatarEmoji = '👤';
+    const playerLocalName = localStorage.getItem('player_name') || 'あなた';
+    const playerAuthToken = localStorage.getItem('auth_token') || '';
+
+    function showMyProfile() {
+      if (gameState && gameState.you) {
+        showUserProfile(gameState.you.name);
+      } else {
+        showUserProfile(playerLocalName);
+      }
+    }
+
+    function showOpponentProfile() {
+      if (gameState && gameState.opponent) {
+        showUserProfile(gameState.opponent.name);
+      } else {
+        showToast('対戦相手のデータがロードされていません', 'info');
+      }
+    }
+
+    async function showUserProfile(username) {
+      currentProfileUser = username;
+
+      try {
+        const res = await fetch(`/get_profile/${encodeURIComponent(username)}`);
+        if (!res.ok) {
+          showToast('ユーザーが見つかりません', 'error');
+          return;
+        }
+        const profile = await res.json();
+
+        document.getElementById('profile-view-name').textContent = profile.name;
+        renderAvatar(profile.avatar || '👤', document.getElementById('profile-view-avatar'));
+        document.getElementById('profile-view-bio').textContent = profile.bio || '自己紹介がありません。';
+
+        document.getElementById('profile-modal').classList.add('visible');
+      } catch (e) {
+        showToast('プロフィール取得に失敗しました', 'error');
+      }
+    }
+
+    function closeProfileModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('profile-modal').classList.remove('visible');
+    }
+  </script>
+
+  <!-- Profile Modal -->
+  <div class="deck-modal" id="profile-modal" onclick="closeProfileModal(event)">
+    <div class="deck-modal-content" onclick="event.stopPropagation()"
+      style="max-width: 400px; width: 90%; background: rgba(13,18,32,0.95); border: 1px solid var(--accent); border-radius: 16px; padding: 24px; position: relative;">
+      <h3
+        style="text-align: center; margin-bottom: 20px; font-size: 18px; color: var(--accent); display: flex; align-items: center; justify-content: center; gap: 8px;">
+        👤 ユーザープロフィール
+      </h3>
+
+      <!-- View mode (Read-only) -->
+      <div id="profile-view-mode" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+        <div id="profile-view-avatar"
+          style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 40px; box-shadow: 0 4px 20px var(--accent-glow); overflow: hidden; border: 2px solid rgba(255,255,255,0.1);">
+          👤
+        </div>
+        <div style="text-align: center; width: 100%;">
+          <div id="profile-view-name"
+            style="font-size: 20px; font-weight: bold; margin-bottom: 8px; color: #fff; word-break: break-all;">---
+          </div>
+          <div
+            style="font-size: 11px; color: var(--text-dim); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">
+            自己紹介 / ひとこと</div>
+          <div id="profile-view-bio"
+            style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 13px; color: var(--text); min-height: 50px; text-align: left; white-space: pre-wrap; word-break: break-all;">
+            自己紹介がありません。</div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="action-btn" onclick="closeProfileModal()"
+          style="background: transparent; border: none; color: var(--text-dim); height: auto; padding: 6px; width: 100%;">閉じる</button>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

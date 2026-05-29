@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG対戦 - ユーザープロフィール</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-card: rgba(255,255,255,0.04);
+      --bg-card-hover: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.08);
+      --text: #e8eaed;
+      --text-dim: #9aa0a6;
+      --accent: #6c63ff;
+      --accent-glow: rgba(108,99,255,0.4);
+      --success: #34d399;
+      --danger: #f87171;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(108,99,255,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(68,136,255,0.06) 0%, transparent 50%);
+      z-index: -1;
+    }
+
+    .profile-card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 32px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      position: relative;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 900;
+      text-align: center;
+      margin-bottom: 30px;
+      background: linear-gradient(135deg, #fff, #a8b4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
+
+    .avatar-wrapper {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      margin: 0 auto 24px auto;
+    }
+
+    .profile-avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 52px;
+      box-shadow: 0 8px 32px var(--accent-glow);
+      overflow: hidden;
+      border: 3px solid rgba(255,255,255,0.1);
+      transition: all 0.3s;
+    }
+
+    .avatar-upload-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .avatar-wrapper:hover .avatar-upload-overlay {
+      opacity: 1;
+    }
+
+    .info-group {
+      margin-bottom: 20px;
+    }
+
+    .info-label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .info-value-box {
+      width: 100%;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text);
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea {
+      resize: none;
+    }
+
+    .avatar-option {
+      cursor: pointer;
+      font-size: 26px;
+      padding: 6px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .avatar-option:hover {
+      background: rgba(255,255,255,0.08);
+      transform: scale(1.08);
+    }
+    .avatar-option.active {
+      border-color: var(--accent) !important;
+      background: rgba(108,99,255,0.15) !important;
+      transform: scale(1.15);
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px var(--accent-glow);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    .edit-toggle-btn {
+      position: absolute;
+      top: 32px;
+      right: 32px;
+      background: rgba(108,99,255,0.1);
+      border: 1px solid rgba(108,99,255,0.3);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .edit-toggle-btn:hover {
+      background: rgba(108,99,255,0.2);
+    }
+
+    .toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 999;
+      animation: toastIn 0.3s ease-out;
+      backdrop-filter: blur(20px);
+    }
+    .toast.error { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+    .toast.success { background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
+
+    @keyframes toastIn {
+      from { transform: translate(-50%, -20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="profile-card">
+    <button id="btn-edit-toggle" class="edit-toggle-btn hidden" onclick="toggleEditMode(true)">編集</button>
+
+    <div style="position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
+      <!-- 三点リーダーボタン（自分のプロフィールの時だけ表示） -->
+      <div id="btn-more-options" class="hidden" onclick="toggleMoreMenu(event)" style="position: absolute; left: 0; cursor: pointer; font-size: 20px; color: var(--text-dim); padding: 4px 8px; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">
+        •••
+      </div>
+      <h2 class="title" id="page-title" style="margin-bottom: 0;">ユーザープロフィール</h2>
+
+      <!-- 退会メニューポップアップ -->
+      <div id="more-menu" class="hidden" style="position: absolute; left: 0; top: 32px; background: #141828; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        <span onclick="confirmDeleteAccount()" style="color: var(--danger); font-size: 13px; font-weight: bold; cursor: pointer; display: block; white-space: nowrap; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">⚠️ 退会する</span>
+      </div>
+    </div>
+
+    <!-- Avatar display/upload -->
+    <div class="avatar-wrapper">
+      <div class="profile-avatar" id="avatar-display">👤</div>
+      <div class="avatar-upload-overlay hidden" id="avatar-upload-trigger" onclick="triggerFileUpload()">
+        <span>📷 写真を</span>
+        <span>変更する</span>
+      </div>
+      <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFileUpload(event)">
+    </div>
+
+    <!-- View Mode UI -->
+    <div id="view-mode-ui">
+      <div class="info-group">
+        <span class="info-label">プレイヤー名</span>
+        <div class="info-value-box" id="view-name">---</div>
+      </div>
+      <div class="info-group">
+        <span class="info-label">ひとこと / 自己紹介</span>
+        <div class="info-value-box" id="view-bio">自己紹介がありません。</div>
+      </div>
+      <div class="btn-row">
+        <a href="/" class="btn btn-secondary">🏠 ホームに戻る</a>
+      </div>
+    </div>
+
+    <!-- Edit Mode UI -->
+    <div id="edit-mode-ui" class="hidden">
+      <!-- Emoji avatar selections -->
+      <div class="info-group" style="text-align: center;">
+        <span class="info-label" style="text-align: center;">または絵文字アバターを選択：</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px;" id="avatar-selector">
+          <span onclick="selectEmojiAvatar('👤')" class="avatar-option">👤</span>
+          <span onclick="selectEmojiAvatar('🤖')" class="avatar-option">🤖</span>
+          <span onclick="selectEmojiAvatar('👾')" class="avatar-option">👾</span>
+          <span onclick="selectEmojiAvatar('🦄')" class="avatar-option">🦄</span>
+          <span onclick="selectEmojiAvatar('🦊')" class="avatar-option">🦊</span>
+          <span onclick="selectEmojiAvatar('🐱')" class="avatar-option">🐱</span>
+          <span onclick="selectEmojiAvatar('🐶')" class="avatar-option">🐶</span>
+          <span onclick="selectEmojiAvatar('🦁')" class="avatar-option">🦁</span>
+        </div>
+      </div>
+
+      <div class="info-group">
+        <label class="info-label">プレイヤー名 (1〜20文字)</label>
+        <input type="text" id="edit-name" placeholder="プレイヤー名を入力..." maxlength="20">
+      </div>
+      <div class="info-group">
+        <label class="info-label">ひとこと / 自己紹介 (100文字以下)</label>
+        <textarea id="edit-bio" placeholder="自己紹介を入力..." rows="3" maxlength="100"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="submitProfileEdit()">💾 保存する</button>
+        <button class="btn btn-secondary" onclick="toggleEditMode(false)">戻る</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const API = location.origin;
+    const params = new URLSearchParams(location.search);
+
+    // 認証情報
+    const playerLocalName = localStorage.getItem('player_name') || '';
+    const authToken = localStorage.getItem('auth_token') || '';
+
+    // 対象のユーザー名（無ければ自分）
+    const targetUsername = params.get('username') || playerLocalName;
+
+    let isOwnProfile = (targetUsername === playerLocalName) && authToken !== '';
+    let loadedAvatar = '👤';
+    let selectedAvatarEmoji = '👤';
+
+    // ============================================================
+    // 初期化とデータ取得
+    // ============================================================
+    async function init() {
+      if (!targetUsername || targetUsername === 'undefined' || targetUsername === 'null') {
+        showToast('ログインしていないか、ユーザーが指定されていません。', 'error');
+        setTimeout(() => location.href = '/', 1500);
+        return;
+      }
+
+      await loadProfileData();
+    }
+
+    async function loadProfileData() {
+      try {
+        const res = await fetch(`${API}/get_profile/${encodeURIComponent(targetUsername)}`);
+        if (!res.ok) {
+          showToast('ユーザー情報が見つかりませんでした。', 'error');
+          setTimeout(() => location.href = '/', 1500);
+          return;
+        }
+        const profile = await res.json();
+
+        // 描画
+        document.getElementById('view-name').textContent = profile.name;
+        document.getElementById('view-bio').textContent = profile.bio || '自己紹介がありません。';
+        loadedAvatar = profile.avatar || '👤';
+        selectedAvatarEmoji = loadedAvatar;
+
+        renderAvatar(loadedAvatar, document.getElementById('avatar-display'));
+
+        // 自分のプロフィールの場合は編集機能と退会メニューを開放
+        if (isOwnProfile) {
+          document.getElementById('btn-edit-toggle').classList.remove('hidden');
+          document.getElementById('btn-more-options').classList.remove('hidden');
+
+          // 編集フォームのプレフィル
+          document.getElementById('edit-name').value = profile.name;
+          document.getElementById('edit-bio').value = profile.bio || '';
+          updateEmojiHighlight(loadedAvatar);
+        }
+      } catch (e) {
+        showToast('プロフィールの取得に失敗しました。', 'error');
+      }
+    }
+
+    // ============================================================
+    // 退会・その他メニュー制御
+    // ============================================================
+    function toggleMoreMenu(event) {
+      if (event) event.stopPropagation();
+      const menu = document.getElementById('more-menu');
+      menu.classList.toggle('hidden');
+    }
+
+    // 画面外クリックでメニューを閉じる
+    document.addEventListener('click', () => {
+      const menu = document.getElementById('more-menu');
+      if (menu) menu.classList.add('hidden');
+    });
+
+    async function confirmDeleteAccount() {
+      if (!confirm('本当に退会しますか？\nこの操作を実行すると、アカウントデータおよび作成したデッキは完全に削除され、復元することはできません。')) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/delete_account`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: authToken })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          alert('退会処理が完了しました。ご利用ありがとうございました。');
+          localStorage.clear();
+          location.href = '/';
+        } else {
+          showToast(data.detail || '退会処理に失敗しました。', 'error');
+        }
+      } catch (e) {
+        showToast('サーバーとの通信に失敗しました。', 'error');
+      }
+    }
+
+    // アバター描画
+    function renderAvatar(avatar, element) {
+      if (!avatar) {
+        element.innerHTML = '👤';
+        return;
+      }
+      if (avatar.startsWith('image:')) {
+        const filename = avatar.replace('image:', '');
+        element.innerHTML = `<img src="/static/avatars/${filename}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" />`;
+      } else {
+        element.innerHTML = avatar;
+      }
+    }
+
+    // ============================================================
+    // 編集モード切替
+    // ============================================================
+    function toggleEditMode(editing) {
+      const viewUI = document.getElementById('view-mode-ui');
+      const editUI = document.getElementById('edit-mode-ui');
+      const toggleBtn = document.getElementById('btn-edit-toggle');
+      const uploadTrigger = document.getElementById('avatar-upload-trigger');
+      const pageTitle = document.getElementById('page-title');
+
+      if (editing) {
+        viewUI.style.display = 'none';
+        editUI.classList.remove('hidden');
+        toggleBtn.classList.add('hidden');
+        uploadTrigger.classList.remove('hidden');
+        pageTitle.textContent = 'プロフィールを編集';
+        updateEmojiHighlight(selectedAvatarEmoji);
+      } else {
+        viewUI.style.display = 'block';
+        editUI.classList.add('hidden');
+        toggleBtn.classList.remove('hidden');
+        uploadTrigger.classList.add('hidden');
+        pageTitle.textContent = 'ユーザープロフィール';
+
+        // プレビューのリセット
+        renderAvatar(loadedAvatar, document.getElementById('avatar-display'));
+        selectedAvatarEmoji = loadedAvatar;
+      }
+    }
+
+    // ============================================================
+    // アバター編集（絵文字）
+    // ============================================================
+    function selectEmojiAvatar(emoji) {
+      selectedAvatarEmoji = emoji;
+      renderAvatar(emoji, document.getElementById('avatar-display'));
+      updateEmojiHighlight(emoji);
+    }
+
+    function updateEmojiHighlight(avatar) {
+      document.querySelectorAll('.avatar-option').forEach(el => {
+        if (el.textContent === avatar) {
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+        }
+      });
+    }
+
+    // ============================================================
+    // アバター編集（ローカル写真アップロード）
+    // ============================================================
+    function triggerFileUpload() {
+      document.getElementById('file-input').click();
+    }
+
+    async function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // 2MBのサイズチェック
+      if (file.size > 2 * 1024 * 1024) {
+        showToast('画像サイズは2MB以下にしてください。', 'error');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('token', authToken);
+      formData.append('image', file);
+
+      try {
+        const res = await fetch(`${API}/upload_avatar`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showToast('画像をアップロードしました。', 'success');
+          // プレビューと選択情報を画像に更新
+          loadedAvatar = data.avatar;
+          selectedAvatarEmoji = data.avatar;
+          renderAvatar(data.avatar, document.getElementById('avatar-display'));
+          updateEmojiHighlight(data.avatar);
+
+          // ローカルストレージ更新
+          localStorage.setItem('player_avatar', data.avatar);
+        } else {
+          showToast(data.detail || '画像のアップロードに失敗しました。', 'error');
+        }
+      } catch (e) {
+        showToast('サーバーとの通信に失敗しました。', 'error');
+      }
+    }
+
+    // ============================================================
+    // プロフィール情報保存
+    // ============================================================
+    async function submitProfileEdit() {
+      const newName = document.getElementById('edit-name').value.trim();
+      const newBio = document.getElementById('edit-bio').value.trim();
+
+      if (!newName || newName.length < 1 || newName.length > 20) {
+        showToast('名前は1〜20文字で入力してください。', 'error');
+        return;
+      }
+
+      function validateCredentials(s) {
+        const allowed = new Set("+-*/=%@!\"#$&'<>{}{}[]~");
+        for (let i = 0; i < s.length; i++) {
+          const char = s[i];
+          const isAlphanumericOrJapanese = /^[a-zA-Z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\u3005-\u3007\u309b-\u309c\u30a0-\u30fc\uff01-\uffef]$/.test(char);
+          if (isAlphanumericOrJapanese) continue;
+          if (allowed.has(char)) continue;
+          return false;
+        }
+        return true;
+      }
+
+      if (!validateCredentials(newName)) {
+        showToast('プレイヤー名に使用できない特殊文字が含まれています。', 'error');
+        return;
+      }
+      if (newBio.length > 100) {
+        showToast('自己紹介は100文字以下で入力してください。', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/save_profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: authToken,
+            name: newName,
+            avatar: selectedAvatarEmoji,
+            bio: newBio
+          })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showToast('プロフィールを保存しました！', 'success');
+
+          // ローカルストレージ情報更新
+          if (newName !== playerLocalName) {
+            localStorage.setItem('player_name', newName);
+          }
+          localStorage.setItem('player_avatar', selectedAvatarEmoji);
+
+          // データ再読込と表示の更新
+          location.href = `/profile?username=${encodeURIComponent(newName)}`;
+        } else {
+          showToast(data.detail || 'プロフィールの保存に失敗しました。', 'error');
+        }
+      } catch (e) {
+        showToast('サーバーとの通信に失敗しました。', 'error');
+      }
+    }
+
+    // ============================================================
+    // トーストユーティリティ
+    // ============================================================
+    function showToast(message, type = 'error') {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    }
+
+    // 起動
+    init();
+  </script>
+
+</body>
+</html>

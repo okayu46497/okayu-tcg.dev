@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG - カード追加</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #080c14;
+      --bg-card: rgba(255, 255, 255, 0.04);
+      --bg-card-hover: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8eaed;
+      --text-dim: #9aa0a6;
+      --accent: #6c63ff;
+      --accent-glow: rgba(108, 99, 255, 0.4);
+      --success: #34d399;
+      --danger: #f87171;
+
+      --civ-fire: #ef4444;
+      --civ-water: #3b82f6;
+      --civ-light: #facc15;
+      --civ-darkness: #a855f7;
+      --civ-nature: #22c55e;
+      --civ-zero: #9ca3af;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background:
+        radial-gradient(ellipse at 30% 50%, rgba(108, 99, 255, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 30%, rgba(34, 197, 94, 0.05) 0%, transparent 50%);
+      z-index: -1;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: rgba(0, 0, 0, 0.4);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .header a:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    /* Layout */
+    .main {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    @media (max-width: 800px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Form panel */
+    .form-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      backdrop-filter: blur(20px);
+    }
+
+    .form-panel h2 {
+      font-size: 16px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    select {
+      appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239aa0a6' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    select option {
+      background: #1a1a2e;
+      color: var(--text);
+    }
+
+    /* Civilization checkboxes */
+    .civ-checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .civ-checkbox {
+      position: relative;
+    }
+
+    .civ-checkbox input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .civ-checkbox label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+      letter-spacing: 0;
+      margin-bottom: 0;
+    }
+
+    .civ-checkbox label:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .civ-checkbox input:checked+label {
+      border-width: 2px;
+    }
+
+    .civ-checkbox.fire input:checked+label {
+      border-color: var(--civ-fire);
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+    }
+
+    .civ-checkbox.water input:checked+label {
+      border-color: var(--civ-water);
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+    }
+
+    .civ-checkbox.light input:checked+label {
+      border-color: var(--civ-light);
+      background: rgba(250, 204, 21, 0.15);
+      color: #fde68a;
+    }
+
+    .civ-checkbox.darkness input:checked+label {
+      border-color: var(--civ-darkness);
+      background: rgba(168, 85, 247, 0.15);
+      color: #d8b4fe;
+    }
+
+    .civ-checkbox.nature input:checked+label {
+      border-color: var(--civ-nature);
+      background: rgba(34, 197, 94, 0.15);
+      color: #86efac;
+    }
+
+    .civ-checkbox.zero input:checked+label {
+      border-color: var(--civ-zero);
+      background: rgba(156, 163, 175, 0.15);
+      color: #d1d5db;
+    }
+
+    /* File input */
+    .file-drop {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .file-drop:hover,
+    .file-drop.drag-over {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.06);
+    }
+
+    .file-drop input[type="file"] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-drop .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .file-drop .label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .file-drop .filename {
+      font-size: 13px;
+      color: var(--success);
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .preview-img {
+      max-width: 100%;
+      max-height: 120px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* Submit */
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px var(--accent-glow);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Card list */
+    .cards-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      backdrop-filter: blur(20px);
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+
+    .cards-panel h2 {
+      font-size: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px;
+    }
+
+    /* Mini card */
+    .mini-card {
+      border-radius: 8px;
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      transition: all 0.2s;
+      cursor: default;
+      font-size: 9px;
+    }
+
+    .mini-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .mini-card.civ-fire {
+      background: linear-gradient(180deg, #1a0505, #2d0a0a);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .mini-card.civ-water {
+      background: linear-gradient(180deg, #050a1a, #0a152d);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .mini-card.civ-light {
+      background: linear-gradient(180deg, #1a1805, #2d2a0a);
+      border-color: rgba(250, 204, 21, 0.3);
+    }
+
+    .mini-card.civ-darkness {
+      background: linear-gradient(180deg, #10051a, #1a0a2d);
+      border-color: rgba(168, 85, 247, 0.3);
+    }
+
+    .mini-card.civ-nature {
+      background: linear-gradient(180deg, #051a0a, #0a2d12);
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    .mini-card.civ-zero {
+      background: linear-gradient(180deg, #141414, #1f1f1f);
+      border-color: rgba(156, 163, 175, 0.3);
+    }
+
+    .mini-card-img {
+      width: 100%;
+      height: 80px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .mini-card-noimg {
+      width: 100%;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .mini-card-body {
+      padding: 6px 8px;
+    }
+
+    .mini-card-name {
+      font-weight: 700;
+      font-size: 10px;
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+
+    .civ-fire .mini-card-name {
+      color: #fca5a5;
+    }
+
+    .civ-water .mini-card-name {
+      color: #93c5fd;
+    }
+
+    .civ-light .mini-card-name {
+      color: #fde68a;
+    }
+
+    .civ-darkness .mini-card-name {
+      color: #d8b4fe;
+    }
+
+    .civ-nature .mini-card-name {
+      color: #86efac;
+    }
+
+    .civ-zero .mini-card-name {
+      color: #d1d5db;
+    }
+
+    .mini-card-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    .mini-card-stats .cost {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 900;
+    }
+
+    .mini-card-stats .power {
+      color: #fbbf24;
+      font-weight: 900;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      top: 80px;
+      right: 24px;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 999;
+      animation: toastIn 0.3s ease-out;
+      backdrop-filter: blur(20px);
+    }
+
+    .toast.success {
+      background: rgba(52, 211, 153, 0.15);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      color: var(--success);
+    }
+
+    .toast.error {
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: var(--danger);
+    }
+
+    @keyframes toastIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .empty-msg {
+      color: var(--text-dim);
+      text-align: center;
+      padding: 40px;
+      font-size: 14px;
+    }
+
+    /* ============================================ */
+    /* Smartphone Landscape (iPhone 16: max-height: 480px) */
+    /* ============================================ */
+    @media (max-height: 480px) {
+      .header {
+        padding: 8px 16px;
+      }
+
+      .header h1 {
+        font-size: 16px;
+      }
+
+      .header a {
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+
+      .main {
+        grid-template-columns: 1fr 1.2fr;
+        gap: 12px;
+        padding: 10px 16px;
+        max-width: 900px;
+        height: calc(100vh - 50px);
+        overflow: hidden;
+      }
+
+      .form-panel {
+        padding: 12px;
+        max-height: 100%;
+        overflow-y: auto;
+        border-radius: 10px;
+      }
+
+      .form-panel h2 {
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+
+      .form-group {
+        margin-bottom: 10px;
+      }
+
+      .form-group label {
+        font-size: 10px;
+        margin-bottom: 4px;
+      }
+
+      .form-row {
+        gap: 8px;
+      }
+
+      input[type="text"],
+      input[type="number"],
+      select,
+      textarea {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+
+      textarea {
+        min-height: 40px;
+      }
+
+      .civ-checkbox label {
+        padding: 4px 8px;
+        font-size: 10px;
+      }
+
+      .file-drop {
+        padding: 10px;
+      }
+
+      .file-drop .icon {
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+
+      .file-drop .label {
+        font-size: 9px;
+      }
+
+      .preview-img {
+        max-height: 60px;
+        margin-top: 6px;
+      }
+
+      .btn-submit {
+        padding: 10px;
+        font-size: 13px;
+        margin-top: 4px;
+      }
+
+      .cards-panel {
+        padding: 12px;
+        max-height: 100%;
+        overflow-y: auto;
+        border-radius: 10px;
+      }
+
+      .cards-panel h2 {
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+
+      .card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 6px;
+      }
+
+      .mini-card-img,
+      .mini-card-noimg {
+        height: 60px;
+        font-size: 20px;
+      }
+
+      .mini-card-body {
+        padding: 4px;
+      }
+
+      .mini-card-name {
+        font-size: 9px;
+        margin-bottom: 2px;
+      }
+
+      .mini-card-stats {
+        font-size: 8px;
+      }
+
+      .mini-card-stats .cost {
+        padding: 0 4px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <h1>🎴 カード追加</h1>
+    <a href="/">🏠 ロビーに戻る</a>
+  </div>
+
+  <div class="main">
+    <!-- Form -->
+    <div class="form-panel">
+      <h2 id="form-title">✨ 新しいカードを登録</h2>
+      <form id="card-form" onsubmit="submitCard(event)">
+        <div class="form-group">
+          <label>カード名 *</label>
+          <input type="text" id="f-name" placeholder="カード名を入力" required maxlength="50">
+        </div>
+
+        <div class="form-group">
+          <label>文明 *（複数選択可）</label>
+          <div class="civ-checkboxes" id="f-civilization">
+            <div class="civ-checkbox fire">
+              <input type="checkbox" id="civ-fire" value="fire" checked>
+              <label for="civ-fire">🔥 火</label>
+            </div>
+            <div class="civ-checkbox water">
+              <input type="checkbox" id="civ-water" value="water">
+              <label for="civ-water">💧 水</label>
+            </div>
+            <div class="civ-checkbox light">
+              <input type="checkbox" id="civ-light" value="light">
+              <label for="civ-light">✨ 光</label>
+            </div>
+            <div class="civ-checkbox darkness">
+              <input type="checkbox" id="civ-darkness" value="darkness">
+              <label for="civ-darkness">🌑 闇</label>
+            </div>
+            <div class="civ-checkbox nature">
+              <input type="checkbox" id="civ-nature" value="nature">
+              <label for="civ-nature">🌿 自然</label>
+            </div>
+            <div class="civ-checkbox zero">
+              <input type="checkbox" id="civ-zero" value="zero">
+              <label for="civ-zero">⚪ ゼロ</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>カードタイプ *</label>
+            <select id="f-card-type" onchange="togglePower()">
+              <option value="creature">⚔ クリーチャー</option>
+              <option value="tamaseed">🔮 タマシード</option>
+              <option value="tamaseed_creature">🔮⚔ タマシード/クリーチャー</option>
+              <option value="spell">📜 呪文</option>
+              <option value="cross_gear">⚙ クロスギア</option>
+              <option value="castle">🏰 城</option>
+              <option value="field">🌍 フィールド</option>
+              <option value="dragheart">🐉 ドラグハート</option>
+              <option value="aura">✨ オーラ</option>
+              <option value="twinpact">🔄 ツインパクト</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>コスト *</label>
+            <input type="number" id="f-cost" min="0" max="99" value="1" required>
+          </div>
+          <div class="form-group" id="power-group">
+            <label>パワー</label>
+            <input type="text" id="f-power" placeholder="例: 1000 または 1000/3000" value="1000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>種族</label>
+          <input type="text" id="f-race" placeholder="例: アーマード・ドラゴン" maxlength="50">
+        </div>
+
+        <div class="form-group">
+          <label>効果テキスト</label>
+          <textarea id="f-text" placeholder="カードのテキストを入力..." maxlength="500"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>カード画像 *</label>
+          <div class="file-drop" id="file-drop">
+            <div class="icon">📷</div>
+            <div class="label">クリックまたはドラッグ＆ドロップで画像を選択</div>
+            <div class="filename" id="file-name"></div>
+            <img class="preview-img" id="file-preview" style="display:none;">
+            <input type="file" id="f-image" accept="image/png,image/jpeg,image/gif,image/webp"
+              onchange="previewImage(this)">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-submit">🎴 カードを登録する</button>
+        <button type="button" class="btn-submit" id="btn-cancel-edit"
+          style="display:none; background:linear-gradient(135deg,#64748b,#475569); margin-top:8px;"
+          onclick="cancelEdit()">❌ 編集をキャンセル</button>
+      </form>
+    </div>
+
+    <!-- Card list -->
+    <div class="cards-panel">
+      <h2>📋 登録済みカード <span id="card-count" style="color:var(--text-dim);font-size:13px;"></span></h2>
+      <div class="card-grid" id="card-grid">
+        <div class="empty-msg">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = location.origin;
+    let editingCardId = null; // 編集中のカードID
+
+    // ============================================================
+    // カード登録 / 更新
+    // ============================================================
+    async function submitCard(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit');
+      const isEdit = editingCardId !== null;
+      btn.innerHTML = `<span class="spinner"></span>${isEdit ? '更新中' : '登録中'}...`;
+      btn.disabled = true;
+
+      // 編集時は画像任意、新規時は必須
+      const imageFile = document.getElementById('f-image').files[0];
+      if (!isEdit && !imageFile) {
+        showToast('カード画像は必須です', 'error');
+        btn.innerHTML = '🎴 カードを登録する';
+        btn.disabled = false;
+        return;
+      }
+
+      const selectedCivs = Array.from(document.querySelectorAll('#f-civilization input:checked')).map(cb => cb.value);
+      if (selectedCivs.length === 0) {
+        showToast('文明を少なくとも1つ選択してください', 'error');
+        btn.innerHTML = isEdit ? '✅ カードを更新する' : '🎴 カードを登録する';
+        btn.disabled = false;
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        if (isEdit) formData.append('card_id', editingCardId);
+        formData.append('name', document.getElementById('f-name').value);
+        formData.append('civilization', selectedCivs.join(','));
+        formData.append('card_type', document.getElementById('f-card-type').value);
+        formData.append('cost', document.getElementById('f-cost').value);
+        formData.append('power', document.getElementById('f-power').value || '0');
+        formData.append('race', document.getElementById('f-race').value);
+        formData.append('text', document.getElementById('f-text').value);
+
+        if (imageFile) formData.append('image', imageFile);
+
+        const url = isEdit ? `${API}/update_card` : `${API}/add_card`;
+        const res = await fetch(url, { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast(`「${data.card.name}」を${isEdit ? '更新' : '登録'}しました！`, 'success');
+          cancelEdit();
+          loadCards();
+        } else {
+          showToast(data.error || 'エラーが発生しました', 'error');
+        }
+      } catch (err) {
+        showToast('サーバーに接続できません', 'error');
+      } finally {
+        btn.innerHTML = isEdit ? '✅ カードを更新する' : '🎴 カードを登録する';
+        btn.disabled = false;
+      }
+    }
+
+    // ============================================================
+    // カード編集モード
+    // ============================================================
+    function editCard(card) {
+      editingCardId = card.id;
+
+      // フォームに値をセット
+      document.getElementById('f-name').value = card.name;
+      document.getElementById('f-card-type').value = card.card_type;
+      document.getElementById('f-cost').value = card.cost;
+      document.getElementById('f-power').value = card.power || '';
+      document.getElementById('f-race').value = card.race || '';
+      document.getElementById('f-text').value = card.text || '';
+
+      // 文明チェックボックスをリセットしてセット
+      document.querySelectorAll('#f-civilization input').forEach(cb => cb.checked = false);
+      const civs = (card.civilization || '').split(',');
+      civs.forEach(civ => {
+        const el = document.getElementById(`civ-${civ}`);
+        if (el) el.checked = true;
+      });
+
+      // 画像プレビュー
+      if (card.image) {
+        const preview = document.getElementById('file-preview');
+        preview.src = `/static/cards/${card.image}`;
+        preview.style.display = 'block';
+        document.getElementById('file-name').textContent = '現在の画像（変更しない場合はそのまま）';
+      }
+
+      // UIを編集モードに
+      document.getElementById('form-title').textContent = `✏️ カードを編集 (ID: ${card.id})`;
+      document.getElementById('btn-submit').textContent = '✅ カードを更新する';
+      document.getElementById('btn-cancel-edit').style.display = '';
+      togglePower();
+
+      // フォームへスクロール
+      document.querySelector('.form-panel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+      editingCardId = null;
+      document.getElementById('card-form').reset();
+      document.getElementById('file-name').textContent = '';
+      document.getElementById('file-preview').style.display = 'none';
+      document.getElementById('form-title').textContent = '✨ 新しいカードを登録';
+      document.getElementById('btn-submit').textContent = '🎴 カードを登録する';
+      document.getElementById('btn-cancel-edit').style.display = 'none';
+      // デフォルトの文明チェックを復元
+      document.querySelectorAll('#f-civilization input').forEach(cb => cb.checked = false);
+      document.getElementById('civ-fire').checked = true;
+      document.getElementById('f-card-type').value = 'creature';
+      togglePower();
+    }
+
+    // ============================================================
+    // パワー表示切替
+    // ============================================================
+    function togglePower() {
+      const type = document.getElementById('f-card-type').value;
+      const hasPower = ['creature', 'tamaseed_creature', 'twinpact', 'dragheart', 'aura'].includes(type);
+      document.getElementById('power-group').style.display = hasPower ? '' : 'none';
+    }
+
+    // ============================================================
+    // 画像プレビュー
+    // ============================================================
+    function previewImage(input) {
+      const file = input.files[0];
+      if (file) {
+        document.getElementById('file-name').textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const preview = document.getElementById('file-preview');
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // File drop visual
+    const fileDrop = document.getElementById('file-drop');
+    fileDrop.addEventListener('dragover', () => fileDrop.classList.add('drag-over'));
+    fileDrop.addEventListener('dragleave', () => fileDrop.classList.remove('drag-over'));
+    fileDrop.addEventListener('drop', () => fileDrop.classList.remove('drag-over'));
+
+    // ============================================================
+    // カード一覧読み込み
+    // ============================================================
+    async function loadCards() {
+      try {
+        const res = await fetch(`${API}/api/cards`);
+        const cards = await res.json();
+        const grid = document.getElementById('card-grid');
+        document.getElementById('card-count').textContent = `(${cards.length}枚)`;
+
+        if (cards.length === 0) {
+          grid.innerHTML = '<div class="empty-msg">カードが登録されていません</div>';
+          return;
+        }
+
+        // カードデータを保持
+        window._allCards = cards;
+
+        grid.innerHTML = cards.map((card, idx) => {
+          const civStr = card.civilization || 'fire';
+          const civ = civStr.split(',')[0];
+          const typeIcons = { creature: '⚔', tamaseed: '🔮', tamaseed_creature: '🔮⚔', spell: '📜', cross_gear: '⚙', castle: '🏰', field: '🌍', dragheart: '🐉', aura: '✨', twinpact: '🔄' };
+          const typeIcon = typeIcons[card.card_type] || '🃏';
+          const powerStr = card.power ? card.power : '—';
+
+          const imgHtml = card.image
+            ? `<img class="mini-card-img" src="/static/cards/${card.image}" alt="${card.name}">`
+            : `<div class="mini-card-noimg">${typeIcon}</div>`;
+
+          return `
+            <div class="mini-card civ-${civ}" style="cursor:pointer;" onclick="editCard(window._allCards[${idx}])" title="クリックで編集\nID:${card.id}\n${card.text || ''}">
+              ${imgHtml}
+              <div class="mini-card-body">
+                <div class="mini-card-name">${card.name}</div>
+                <div class="mini-card-stats">
+                  <span class="cost">${card.cost}</span>
+                  <span class="power">${['creature', 'tamaseed_creature', 'twinpact', 'dragheart', 'aura'].includes(card.card_type) ? powerStr : typeIcon}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        document.getElementById('card-grid').innerHTML =
+          '<div class="empty-msg">サーバーに接続できません</div>';
+      }
+    }
+
+    // ============================================================
+    // Toast
+    // ============================================================
+    function showToast(msg, type) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 4000);
+    }
+
+    // 初期化
+    loadCards();
+  </script>
+</body>
+
+</html>

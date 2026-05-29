@@ -1,0 +1,202 @@
+[
+  {
+    "id": 1,
+    "name": "ボルシャック・ドラゴン",
+    "civilization": "fire",
+    "card_type": "creature",
+    "cost": 6,
+    "power": 6000,
+    "text": "攻撃する時、自分の墓地にある火のカード1枚につきパワーを+1000する。",
+    "race": "アーマード・ドラゴン"
+  },
+  {
+    "id": 2,
+    "name": "アクア・サーファー",
+    "civilization": "water",
+    "card_type": "creature",
+    "cost": 6,
+    "power": 2000,
+    "text": "S・トリガー。バトルゾーンに出た時、クリーチャーを1体手札に戻す。",
+    "race": "リキッド・ピープル"
+  },
+  {
+    "id": 3,
+    "name": "聖霊王アルカディアス",
+    "civilization": "light",
+    "card_type": "creature",
+    "cost": 6,
+    "power": 12500,
+    "text": "進化—自分の光のクリーチャー1体の上に置く。光以外の呪文を唱えられなくする。",
+    "race": "エンジェル・コマンド"
+  },
+  {
+    "id": 4,
+    "name": "デーモン・ハンド",
+    "civilization": "darkness",
+    "card_type": "spell",
+    "cost": 6,
+    "power": null,
+    "text": "S・トリガー。相手のクリーチャーを1体破壊する。",
+    "race": null
+  },
+  {
+    "id": 5,
+    "name": "ナチュラル・トラップ",
+    "civilization": "nature",
+    "card_type": "spell",
+    "cost": 6,
+    "power": null,
+    "text": "S・トリガー。相手のクリーチャーを1体マナゾーンに置く。",
+    "race": null
+  },
+  {
+    "id": 6,
+    "name": "青銅の鎧",
+    "civilization": "nature",
+    "card_type": "creature",
+    "cost": 3,
+    "power": 2000,
+    "text": "このクリーチャーをマナゾーンに置く代わりに、自分の山札の上から1枚をマナゾーンに置いてもよい。",
+    "race": "ビーストフォーク"
+  },
+  {
+    "id": 7,
+    "name": "アクア・ガード",
+    "civilization": "water",
+    "card_type": "creature",
+    "cost": 1,
+    "power": 2000,
+    "text": "ブロッカー（このクリーチャーをタップして、相手のクリーチャーの攻撃先をこのクリーチャーに変更してもよい）",
+    "race": "リキッド・ピープル"
+  },
+  {
+    "id": 8,
+    "name": "火炎流星弾",
+    "civilization": "fire",
+    "card_type": "spell",
+    "cost": 5,
+    "power": null,
+    "text": "相手のパワー5000以下のクリーチャーをすべて破壊する。",
+    "race": null
+  },
+  {
+    "id": 9,
+    "name": "光輪の精霊 ピカリエ",
+    "civilization": "light",
+    "card_type": "creature",
+    "cost": 3,
+    "power": 3000,
+    "text": "ブロッカー。このクリーチャーは攻撃することができない。",
+    "race": "エンジェル・コマンド"
+  },
+  {
+    "id": 10,
+    "name": "ダーク・リバース",
+    "civilization": "darkness",
+    "card_type": "spell",
+    "cost": 2,
+    "power": null,
+    "text": "自分の墓地からクリーチャーを1体手札に戻す。",
+    "race": null
+  },
+  {
+    "id": 11,
+    "name": "ピリリ",
+    "civilization": "fire",
+    "card_type": "creature",
+    "cost": 1,
+    "power": 1000,
+    "text": "",
+    "race": "ファイアー・バード"
+  },
+  {
+    "id": 12,
+    "name": "エメラル",
+    "civilization": "water",
+    "card_type": "creature",
+    "cost": 2,
+    "power": 1000,
+    "text": "バトルゾーンに出た時、自分のシールドを1枚手札に加え、自分の手札を1枚シールドゾーンに置く。",
+    "race": "サイバーロード"
+  },
+  {
+    "id": 13,
+    "name": "ホーリー・スパーク",
+    "civilization": "light",
+    "card_type": "spell",
+    "cost": 6,
+    "power": null,
+    "text": "S・トリガー。相手のクリーチャーをすべてタップする。",
+    "race": null
+  },
+  {
+    "id": 14,
+    "name": "汽車男",
+    "civilization": "darkness",
+    "card_type": "creature",
+    "cost": 4,
+    "power": 4000,
+    "text": "バトルゾーンに出た時、相手の手札を1枚見ないで選び捨てさせる。",
+    "race": "ヘドリアン"
+  },
+  {
+    "id": 15,
+    "name": "シビレアシダケ",
+    "civilization": "nature",
+    "card_type": "creature",
+    "cost": 3,
+    "power": 2000,
+    "text": "このクリーチャーをマナゾーンに置く代わりにバトルゾーンに出してもよい。",
+    "race": "バルーン・マッシュルーム"
+  },
+  {
+    "id": 16,
+    "name": "クリムゾン・ワイバーン",
+    "civilization": "fire",
+    "card_type": "creature",
+    "cost": 7,
+    "power": 7000,
+    "text": "W・ブレイカー（このクリーチャーはシールドを2枚ブレイクする）",
+    "race": "アーマード・ワイバーン"
+  },
+  {
+    "id": 17,
+    "name": "アクア・スナイパー",
+    "civilization": "water",
+    "card_type": "creature",
+    "cost": 8,
+    "power": 5000,
+    "text": "W・ブレイカー。バトルゾーンに出た時、クリーチャーを2体まで手札に戻す。",
+    "race": "リキッド・ピープル"
+  },
+  {
+    "id": 18,
+    "name": "翡翠樹",
+    "civilization": "nature",
+    "card_type": "creature",
+    "cost": 5,
+    "power": 5000,
+    "text": "このクリーチャーが破壊された時、自分の山札の上から1枚をマナゾーンに置く。",
+    "race": "ツリーフォーク"
+  },
+  {
+    "id": 19,
+    "name": "地獄スクラッパー",
+    "civilization": "fire",
+    "card_type": "spell",
+    "cost": 7,
+    "power": null,
+    "text": "S・トリガー。相手のクリーチャーをパワーの合計が5000以下になるように好きな数選び破壊する。",
+    "race": null
+  },
+  {
+    "id": 20,
+    "name": "霊騎コルテオ",
+    "civilization": "light",
+    "card_type": "creature",
+    "cost": 2,
+    "power": 2500,
+    "text": "ブロッカー。このクリーチャーは攻撃することができない。",
+    "race": "ガーディアン"
+  }
+]
