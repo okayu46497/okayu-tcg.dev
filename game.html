@@ -2146,7 +2146,10 @@
       const isCreature = card.card_type === 'creature';
       const typeIcon = isCreature ? '⚔' : '📜';
       const powerStr = card.power ? card.power.toLocaleString() : '';
-      const imageHTML = card.image ? `<img src="/static/cards/${card.image}" class="card-image" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; pointer-events:none;" />` : '';
+      const imgSrc = card.image && (card.image.startsWith('http') || card.image.startsWith('/api') || card.image.startsWith('/static'))
+        ? card.image
+        : (card.image ? `/static/cards/${card.image}` : null);
+      const imageHTML = imgSrc ? `<img src="${imgSrc}" class="card-image" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; pointer-events:none;" />` : '';
 
       return `
         <div class="${classes}" ${draggableAttr} ${dragStart} ${dragEnd} ${clickHandler}

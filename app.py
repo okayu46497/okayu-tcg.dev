@@ -456,17 +456,52 @@ def build_deck() -> list[dict]:
     return deck
 
 
-def build_deck_from_ids(card_ids: list[int]) -> list[dict]:
-    """指定されたカードIDリストからデッキを構築する"""
-    all_cards = load_cards()
-    card_map = {c["id"]: c for c in all_cards}
+def build_deck_from_ids(card_ids: list) -> list[dict]:
+    """指定されたカードIDリストからデッキを構築する (手動 & 公式)"""
     deck = []
     for cid in card_ids:
-        card = card_map.get(cid)
+        # cid can be int or str. We look it up in CARD_MAP_COMBINED.
+        card = CARD_MAP_COMBINED.get(cid)
+        if not card:
+            # Try converting to int if it's a string representing a number
+            try:
+                card = CARD_MAP_COMBINED.get(int(cid))
+            except (ValueError, TypeError):
+                pass
+        
         if card:
-            card_copy = card.copy()
+            card_copy = {}
+            # Copy all fields from combined card and map to both old and new schemas
+            card_copy["id"] = card.get("id") if card.get("id") is not None else card.get("card_id")
+            card_copy["card_id"] = card.get("card_id")
+            card_copy["name"] = card.get("card_name")
+            card_copy["card_name"] = card.get("card_name")
+            card_copy["text"] = card.get("ability_text", "")
+            card_copy["ability_text"] = card.get("ability_text", "")
+            card_copy["civilization"] = card.get("civilization")
+            card_copy["card_type"] = card.get("card_type")
+            card_copy["cost"] = card.get("cost")
+            card_copy["power"] = card.get("power")
+            card_copy["race"] = card.get("race")
+            
+            # Image mapping
+            if card.get("is_official"):
+                # Use proxy or direct image url
+                card_copy["image"] = f"/api/v2/cards/image/{card.get('card_id')}"
+                card_copy["image_url"] = card.get("image_url")
+            else:
+                # Manual cards
+                img_url = card.get("image_url", "")
+                if "/static/cards/" in img_url:
+                    card_copy["image"] = img_url.replace("/static/cards/", "")
+                else:
+                    card_copy["image"] = img_url.replace("/static/", "")
+                card_copy["image_url"] = card.get("image_url")
+                
+            card_copy["is_official"] = card.get("is_official", False)
             card_copy["uuid"] = str(uuid.uuid4())
             deck.append(card_copy)
+            
     random.shuffle(deck)
     return deck
 
@@ -2487,11 +2522,9 @@ async def save_deck_api(request_body: dict):
             },
         )
 
-    # カードIDの型チェック
-    all_cards = load_cards()
-    valid_ids = {c["id"] for c in all_cards}
+    # カードIDの存在チェック (手動 & 公式)
     for cid in card_ids:
-        if not isinstance(cid, int) or cid not in valid_ids:
+        if cid not in CARD_MAP_COMBINED:
             return JSONResponse(
                 status_code=400, content={"error": f"不正なカードIDです: {cid}"}
             )
@@ -2532,6 +2565,13 @@ async def update_deck_api(request_body: dict):
         return JSONResponse(
             status_code=400, content={"error": "デッキには40枚以上のカードが必要です"}
         )
+
+    # カードIDの存在チェック (手動 & 公式)
+    for cid in card_ids:
+        if cid not in CARD_MAP_COMBINED:
+            return JSONResponse(
+                status_code=400, content={"error": f"不正なカードIDです: {cid}"}
+            )
 
     decks = load_decks()
     target = None
