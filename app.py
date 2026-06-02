@@ -68,18 +68,101 @@ if NORMAL_BACK_SRC.exists():
     shutil.copy(NORMAL_BACK_SRC, NORMAL_BACK_DST)
 
 
+import os
+import requests
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://pvwiojdoiheamfhshgvx.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
+def get_supabase_headers():
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+
 def load_cards() -> list[dict]:
-    """cards.json を読み込む"""
-    if not CARDS_PATH.exists():
-        return []
-    with open(CARDS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """Supabase もしくは cards.json から手動登録カード一覧を読み込む"""
+    if not SUPABASE_KEY:
+        if not CARDS_PATH.exists():
+            return []
+        with open(CARDS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/user_cards?select=*&order=id.asc"
+        resp = requests.get(url, headers=get_supabase_headers(), timeout=5)
+        if resp.status_code == 200:
+            raw_cards = resp.json()
+            cards = []
+            for c in raw_cards:
+                cards.append({
+                    "id": c["id"],
+                    "name": c["name"],
+                    "civilization": c.get("civilization"),
+                    "card_type": c.get("card_type"),
+                    "cost": c.get("cost"),
+                    "power": c.get("power"),
+                    "text": c.get("text", ""),
+                    "race": c.get("race"),
+                    "image": c.get("image")
+                })
+            return cards
+        else:
+            print(f"Supabase load_cards failed (status={resp.status_code}): {resp.text}")
+    except Exception as e:
+        print(f"Error loading cards from Supabase: {e}")
+    
+    # 接続エラー時の最後のローカルフォールバック
+    if CARDS_PATH.exists():
+        with open(CARDS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
 
 def save_cards(cards: list[dict]):
-    """cards.json に保存する"""
-    with open(CARDS_PATH, "w", encoding="utf-8") as f:
-        json.dump(cards, f, ensure_ascii=False, indent=2)
+    """Supabase および cards.json に手動登録カード一覧を保存する"""
+    global ALL_CARDS, CARD_MAP
+    ALL_CARDS = cards
+    CARD_MAP = {card["id"]: card for card in ALL_CARDS}
+    
+    # 常にローカルにも保存して耐障害性を高める
+    try:
+        with open(CARDS_PATH, "w", encoding="utf-8") as f:
+            json.dump(cards, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Local cards.json write error: {e}")
+        
+    if SUPABASE_KEY:
+        try:
+            # 1. 一旦全削除して同期ズレを防ぐ
+            del_url = f"{SUPABASE_URL}/rest/v1/user_cards?id=gt.0"
+            requests.delete(del_url, headers=get_supabase_headers(), timeout=5)
+            
+            # 2. バルクインサート用のデータ整形
+            db_cards = []
+            for c in cards:
+                db_cards.append({
+                    "id": c["id"],
+                    "name": c["name"],
+                    "civilization": c.get("civilization"),
+                    "card_type": c.get("card_type"),
+                    "cost": c.get("cost"),
+                    "power": str(c.get("power")) if c.get("power") is not None else None,
+                    "text": c.get("text", ""),
+                    "race": c.get("race"),
+                    "image": c.get("image")
+                })
+                
+            if db_cards:
+                ins_url = f"{SUPABASE_URL}/rest/v1/user_cards"
+                resp = requests.post(ins_url, json=db_cards, headers=get_supabase_headers(), timeout=5)
+                if resp.status_code not in (200, 201):
+                    print(f"Supabase save_cards insert failed (status={resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"Error saving cards to Supabase: {e}")
+            
+    # ハイブリッド統合インデックスを再ビルド
+    rebuild_combined_cards()
 
 
 def next_card_id(cards: list[dict]) -> int:
@@ -90,17 +173,76 @@ def next_card_id(cards: list[dict]) -> int:
 
 
 def load_decks() -> list[dict]:
-    """decks.json を読み込む"""
-    if not DECKS_PATH.exists():
-        return []
-    with open(DECKS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """Supabase もしくは decks.json からデッキ一覧を読み込む"""
+    if not SUPABASE_KEY:
+        if not DECKS_PATH.exists():
+            return []
+        with open(DECKS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/user_decks?select=*&order=id.asc"
+        resp = requests.get(url, headers=get_supabase_headers(), timeout=5)
+        if resp.status_code == 200:
+            raw_decks = resp.json()
+            decks = []
+            for d in raw_decks:
+                decks.append({
+                    "id": d["id"],
+                    "name": d["name"],
+                    "owner": d["owner"],
+                    "cards": d["cards"],
+                    "card_count": d["card_count"],
+                    "sleeve_type": d.get("sleeve_type", "normal"),
+                    "sleeve_image": d.get("sleeve_image"),
+                    "created_at": d.get("created_at")
+                })
+            return decks
+        else:
+            print(f"Supabase load_decks failed (status={resp.status_code}): {resp.text}")
+    except Exception as e:
+        print(f"Error loading decks from Supabase: {e}")
+        
+    if DECKS_PATH.exists():
+        with open(DECKS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
 
 def save_decks(decks: list[dict]):
-    """decks.json に保存する"""
-    with open(DECKS_PATH, "w", encoding="utf-8") as f:
-        json.dump(decks, f, ensure_ascii=False, indent=2)
+    """Supabase および decks.json にデッキ一覧を保存する"""
+    try:
+        with open(DECKS_PATH, "w", encoding="utf-8") as f:
+            json.dump(decks, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Local decks.json write error: {e}")
+        
+    if SUPABASE_KEY:
+        try:
+            # 1. 一旦全削除して同期ズレを防ぐ
+            del_url = f"{SUPABASE_URL}/rest/v1/user_decks?id=gt.0"
+            requests.delete(del_url, headers=get_supabase_headers(), timeout=5)
+            
+            # 2. バルクインサート用のデータ整形
+            db_decks = []
+            for d in decks:
+                db_decks.append({
+                    "id": d["id"],
+                    "name": d["name"],
+                    "owner": d["owner"],
+                    "cards": d["cards"],
+                    "card_count": d["card_count"],
+                    "sleeve_type": d.get("sleeve_type", "normal"),
+                    "sleeve_image": d.get("sleeve_image"),
+                    "created_at": d.get("created_at")
+                })
+                
+            if db_decks:
+                ins_url = f"{SUPABASE_URL}/rest/v1/user_decks"
+                resp = requests.post(ins_url, json=db_decks, headers=get_supabase_headers(), timeout=5)
+                if resp.status_code not in (200, 201):
+                    print(f"Supabase save_decks insert failed (status={resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"Error saving decks to Supabase: {e}")
 
 
 def next_deck_id(decks: list[dict]) -> int:
@@ -161,6 +303,97 @@ def find_user_by_token(token: str) -> Optional[dict]:
 
 ALL_CARDS: list[dict] = load_cards()
 CARD_MAP: dict[int, dict] = {card["id"]: card for card in ALL_CARDS}
+
+# ============================================================
+# SQLite カードデータベース (cards_v2.db) オンメモリロード
+# ============================================================
+import sqlite3
+
+ALL_CARDS_V2: list[dict] = []
+CARD_MAP_V2: dict[str, dict] = {}
+
+# ハイブリッド統合インデックス用のグローバル変数
+ALL_CARDS_COMBINED: list[dict] = []
+CARD_MAP_COMBINED: dict[str | int, dict] = {}
+
+def rebuild_combined_cards():
+    """
+    公式DB (cards_v2.db) とユーザー手動登録 (cards.json) を統合し、高速検索インデックスを再構築する。
+    同名カードがある場合、公式データを優先して重複（手動側）を非表示にするマスク処理を自動で行う。
+    """
+    global ALL_CARDS_COMBINED, CARD_MAP_COMBINED
+    combined_list = []
+    combined_map = {}
+
+    # 1. 公式マスタデータをロード
+    for card in ALL_CARDS_V2:
+        card_copy = dict(card)
+        card_copy["is_official"] = True
+        combined_list.append(card_copy)
+        combined_map[card_copy["card_id"]] = card_copy
+
+    # 2. ユーザー登録カードをロード (公式と重複する同名カードはマスク)
+    official_names = {c["card_name"].strip().lower() for c in ALL_CARDS_V2}
+
+    for card in ALL_CARDS:
+        card_name = card.get("name", "").strip()
+        card_name_lower = card_name.lower()
+
+        # 同名カードが公式マスタにある場合はマスク（非表示）
+        if card_name_lower in official_names:
+            continue
+
+        # v2 のデータ構造に合わせてフォーマット
+        card_copy = {
+            "card_id": str(card["id"]),
+            "id": card["id"],
+            "card_name": card_name,
+            "civilization": card.get("civilization"),
+            "card_type": card.get("card_type"),
+            "cost": card.get("cost"),
+            "power": card.get("power"),
+            "race": card.get("race"),
+            "ability_text": card.get("text", ""),
+            "image_url": f"/static/cards/{card.get('image')}" if card.get("image") else "/static/通常裏面画像.jpg",
+            "is_official": False
+        }
+        combined_list.append(card_copy)
+        combined_map[card["id"]] = card_copy
+        combined_map[str(card["id"])] = card_copy
+
+    ALL_CARDS_COMBINED = combined_list
+    CARD_MAP_COMBINED = combined_map
+    print(f"Rebuilt hybrid card database: {len(ALL_CARDS_COMBINED)} cards loaded (Official: {len(ALL_CARDS_V2)}, Manual: {len(ALL_CARDS_COMBINED) - len(ALL_CARDS_V2)})")
+
+def load_cards_v2():
+    global ALL_CARDS_V2, CARD_MAP_V2
+    db_path = BASE_DIR / "cards_v2.db"
+    if not db_path.exists():
+        print("Warning: cards_v2.db does not exist yet. Please run collect_cards.py script to crawl data.")
+        ALL_CARDS_V2 = []
+        CARD_MAP_V2 = {}
+        rebuild_combined_cards()
+        return
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM cards")
+        rows = cursor.fetchall()
+        ALL_CARDS_V2 = [dict(r) for r in rows]
+        CARD_MAP_V2 = {c["card_id"]: c for c in ALL_CARDS_V2}
+        conn.close()
+        print(f"Successfully loaded {len(ALL_CARDS_V2)} cards from cards_v2.db into memory.")
+    except Exception as e:
+        print(f"Error loading cards from SQLite: {e}")
+        ALL_CARDS_V2 = []
+        CARD_MAP_V2 = {}
+    
+    # 統合インデックスをビルド
+    rebuild_combined_cards()
+
+# サーバー起動時に SQLite の情報をキャッシュにロード
+load_cards_v2()
 
 # 静的ファイル配信（カード画像用）
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -1937,6 +2170,128 @@ async def add_card(
 async def get_all_cards():
     """登録済みカード一覧を返す"""
     return load_cards()
+
+
+# ============================================================
+# 新カードデータベース (cards_v2.db) API エンドポイント
+# ============================================================
+from fastapi.responses import StreamingResponse
+import requests
+
+@app.get("/api/v2/cards/search")
+async def search_cards_v2(
+    q: Optional[str] = None,
+    civilization: Optional[str] = None,
+    card_type: Optional[str] = None,
+    cost: Optional[int] = None,
+):
+    """
+    メモリ上のハイブリッド統合カードデータベースから高速にあいまい検索を行う
+    """
+    results = ALL_CARDS_COMBINED
+    
+    if q and q.strip():
+        search_query = q.strip().lower()
+        results = [
+            c for c in results
+            if search_query in c["card_name"].lower()
+        ]
+        
+    if civilization and civilization.strip():
+        civil_query = civilization.strip()
+        results = [
+            c for c in results
+            if c["civilization"] and civil_query in c["civilization"]
+        ]
+        
+    if card_type and card_type.strip():
+        type_query = card_type.strip()
+        results = [
+            c for c in results
+            if c["card_type"] and type_query in c["card_type"]
+        ]
+        
+    if cost is not None:
+        results = [
+            c for c in results
+            if c["cost"] == cost
+        ]
+        
+    # パフォーマンスとUIのロード負荷を考慮し、無条件の場合は最大100件までに制限する
+    if not q and not civilization and not card_type and cost is None:
+        return results[:100]
+        
+    return results
+
+@app.get("/api/v2/cards/{card_id}")
+async def get_card_v2(card_id: str):
+    """
+    指定された card_id のカード情報を O(1) で高速に取得する (公式・手動ハイブリッド)
+    """
+    card = CARD_MAP_COMBINED.get(card_id)
+    # 文字列と数値の両方で検索を試みる
+    if not card:
+        try:
+            card = CARD_MAP_COMBINED.get(int(card_id))
+        except ValueError:
+            pass
+            
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return card
+
+@app.get("/api/v2/cards/image/{card_id}")
+async def proxy_card_image(card_id: str):
+    """
+    公式の画像URLをプロキシ中継して返す (CORS や Referer ポリシー対策)
+    手動登録カードの場合は、ローカルに保存されている静的画像を返す
+    """
+    card = CARD_MAP_COMBINED.get(card_id)
+    if not card:
+        try:
+            card = CARD_MAP_COMBINED.get(int(card_id))
+        except ValueError:
+            pass
+            
+    if not card or not card.get("image_url"):
+        raise HTTPException(status_code=404, detail="Card or image URL not found")
+        
+    image_url = card["image_url"]
+    
+    # ユーザー登録（手動）カードの場合はローカルから読み出して返却する
+    if not card.get("is_official", True):
+        if image_url.startswith("/static/"):
+            rel_path = image_url[len("/static/"):]
+            local_path = STATIC_DIR / rel_path
+            if local_path.exists():
+                from fastapi.responses import FileResponse
+                return FileResponse(str(local_path))
+        raise HTTPException(status_code=404, detail="Local manual image not found")
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://dm.takaratomy.co.jp/"
+    }
+    
+    try:
+        resp = requests.get(image_url, headers=headers, stream=True, timeout=5)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail="Failed to fetch image from official site")
+            
+        content_type = resp.headers.get("Content-Type", "image/jpeg")
+        
+        def image_generator():
+            for chunk in resp.iter_content(chunk_size=4096):
+                yield chunk
+                
+        headers_response = {
+            "Cache-Control": "public, max-age=86400"
+        }
+        
+        return StreamingResponse(image_generator(), media_type=content_type, headers=headers_response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image proxy error: {str(e)}")
+
 
 
 @app.post("/api/upload_sleeve")
