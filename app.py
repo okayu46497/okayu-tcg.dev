@@ -367,6 +367,39 @@ def rebuild_combined_cards():
 
 def load_cards_v2():
     global ALL_CARDS_V2, CARD_MAP_V2
+    
+    # 1. Supabase からのロードを試みる (本番用・環境変数設定時)
+    if SUPABASE_KEY:
+        try:
+            print("Loading official master cards from Supabase official_cards...")
+            url = f"{SUPABASE_URL}/rest/v1/official_cards?select=*&order=id.asc"
+            resp = requests.get(url, headers=get_supabase_headers(), timeout=15)
+            if resp.status_code == 200:
+                raw_cards = resp.json()
+                ALL_CARDS_V2 = []
+                for c in raw_cards:
+                    ALL_CARDS_V2.append({
+                        "card_id": c["id"],
+                        "card_name": c["name"],
+                        "civilization": c.get("civilization"),
+                        "card_type": c.get("card_type"),
+                        "cost": c.get("cost"),
+                        "power": c.get("power"),
+                        "ability_text": c.get("text", ""),
+                        "race": c.get("race"),
+                        "image_url": c.get("image"),
+                        "detail_url": f"https://dm.takaratomy.co.jp/card/detail/?id={c['id']}"
+                    })
+                CARD_MAP_V2 = {c["card_id"]: c for c in ALL_CARDS_V2}
+                print(f"Successfully loaded {len(ALL_CARDS_V2)} cards from Supabase official_cards into memory.")
+                rebuild_combined_cards()
+                return
+            else:
+                print(f"Failed to load from Supabase official_cards (status={resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"Error loading official cards from Supabase: {e}")
+            
+    # 2. ローカル SQLite (cards_v2.db) からのロード (開発用・フォールバック)
     db_path = BASE_DIR / "cards_v2.db"
     if not db_path.exists():
         print("Warning: cards_v2.db does not exist yet. Please run collect_cards.py script to crawl data.")
@@ -383,7 +416,7 @@ def load_cards_v2():
         ALL_CARDS_V2 = [dict(r) for r in rows]
         CARD_MAP_V2 = {c["card_id"]: c for c in ALL_CARDS_V2}
         conn.close()
-        print(f"Successfully loaded {len(ALL_CARDS_V2)} cards from cards_v2.db into memory.")
+        print(f"Successfully loaded {len(ALL_CARDS_V2)} cards from local cards_v2.db into memory.")
     except Exception as e:
         print(f"Error loading cards from SQLite: {e}")
         ALL_CARDS_V2 = []
