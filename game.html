@@ -887,6 +887,56 @@
       color: var(--danger);
     }
 
+    /* Graveyard Sidebar */
+    .graveyard-sidebar {
+      position: fixed;
+      left: 0;
+      top: 50px;
+      bottom: 0;
+      width: 82px;
+      background: rgba(13, 18, 32, 0.96);
+      border-right: 1.5px solid var(--border);
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 4px;
+      backdrop-filter: blur(12px);
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateX(-100%);
+    }
+
+    .graveyard-sidebar.visible {
+      transform: translateX(0);
+    }
+
+    #graveyard-sidebar-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      align-items: center;
+      overflow-y: auto;
+      flex: 1;
+      padding-bottom: 20px;
+    }
+
+    /* Custom scrollbar for graveyard sidebar */
+    #graveyard-sidebar-cards::-webkit-scrollbar {
+      width: 4px;
+    }
+    #graveyard-sidebar-cards::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    #graveyard-sidebar-cards::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+    #graveyard-sidebar-cards::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
     /* Deck modal */
     .deck-modal {
       position: fixed;
@@ -1614,15 +1664,13 @@
     </div>
   </div>
 
-  <!-- Graveyard modal -->
-  <div class="deck-modal" id="grave-modal" onclick="closeGraveModal(event)">
-    <div class="deck-modal-content" onclick="event.stopPropagation()">
-      <h3>💀 墓地の中身</h3>
-      <div class="deck-modal-cards" id="grave-modal-cards"></div>
-      <div style="text-align:center;">
-        <button class="btn-close" onclick="closeGraveModal()">閉じる</button>
-      </div>
+  <!-- Graveyard Sidebar (左端縦型墓地表示) -->
+  <div class="graveyard-sidebar" id="graveyard-sidebar">
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1.5px solid rgba(255,255,255,0.1); padding-bottom: 6px; margin-bottom: 8px;">
+      <span id="graveyard-sidebar-title" style="font-size: 10px; font-weight: bold; color: var(--accent);">💀 自分墓地 (0)</span>
+      <button onclick="closeGraveSidebar()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 10px; padding: 0 2px;">❌</button>
     </div>
+    <div id="graveyard-sidebar-cards"></div>
   </div>
 
   <!-- Card Context Menu -->
@@ -1642,6 +1690,9 @@
     </div>
     <div class="menu-item" id="menu-hand-mana" onclick="handleMenuHandMana()"
       style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#a78bfa; transition:all 0.2s;">🔮 マナゾーンに置く
+    </div>
+    <div class="menu-item" id="menu-hand-to-hand" onclick="handleMenuHandToHand()"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#10b981; transition:all 0.2s;">🃏 手札に加える
     </div>
     <div class="menu-item" id="menu-hand-shield-face-down" onclick="handleMenuHandShield(false)"
       style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#fbbf24; transition:all 0.2s;">🛡️ シールドに置く (裏)
@@ -2000,6 +2051,12 @@
       renderGravePile('my-grave-pile', 'my-grave-count-pile', you.graveyard, true);
       renderGravePile('opp-grave-pile', 'opp-grave-count-pile', opp ? opp.graveyard : [], false);
 
+      // 墓地サイドバーが表示されている場合、中身を再描画する
+      const graveSidebar = document.getElementById('graveyard-sidebar');
+      if (graveSidebar && graveSidebar.classList.contains('visible')) {
+        showGraveSidebar(isGraveSidebarMine);
+      }
+
       // ゲームログ
       renderLog(gameState.log);
 
@@ -2289,29 +2346,40 @@
       clearAllDropHighlights();
     }
 
-    function showGraveModal(isMine = true) {
+    let isGraveSidebarMine = true;
+
+    function showGraveSidebar(isMine = true) {
       if (!gameState) return;
+      isGraveSidebarMine = isMine;
       const player = isMine ? gameState.you : gameState.opponent;
       if (!player || !player.graveyard) return;
       const grave = player.graveyard;
-      const container = document.getElementById('grave-modal-cards');
-      const title = document.querySelector('#grave-modal h3');
+      const container = document.getElementById('graveyard-sidebar-cards');
+      const title = document.getElementById('graveyard-sidebar-title');
 
-      title.textContent = `💀 ${isMine ? '自分' : '相手'}の墓地の中身`;
+      title.textContent = `💀 ${isMine ? '自分' : '相手'}墓地 (${grave.length})`;
 
       if (grave.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-dim);padding:20px;">墓地が空です</div>';
+        container.innerHTML = '<div style="color:var(--text-dim);font-size:10px;padding:20px;text-align:center;">空</div>';
       } else {
         const type = isMine ? 'graveyard' : 'opp-graveyard';
         container.innerHTML = grave.map(card => createCardHTML(card, type)).join('');
       }
 
-      document.getElementById('grave-modal').classList.add('visible');
+      document.getElementById('graveyard-sidebar').classList.add('visible');
+    }
+
+    function closeGraveSidebar() {
+      document.getElementById('graveyard-sidebar').classList.remove('visible');
+    }
+
+    // Keep compatibility for modal functions calling sidebar
+    function showGraveModal(isMine = true) {
+      showGraveSidebar(isMine);
     }
 
     function closeGraveModal(e) {
-      if (e && e.target !== e.currentTarget) return;
-      document.getElementById('grave-modal').classList.remove('visible');
+      closeGraveSidebar();
     }
 
     // ============================================================
@@ -2413,7 +2481,12 @@
 
       // 墓地のカードはクリックで即モーダル展開
       if (zone === 'graveyard' || zone === 'opp-graveyard') {
-        showGraveModal(zone === 'graveyard');
+        // もしクリックされた要素がサイドバー内であれば、コンテキストメニューを開く
+        if (e.target.closest('#graveyard-sidebar')) {
+          showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
+        } else {
+          showGraveModal(zone === 'graveyard');
+        }
         return;
       }
 
@@ -2459,8 +2532,10 @@
 
       // ゾーンに応じたメニューアイテムの切り替え
       const isHand = (zone === 'hand');
+      // 墓地からの移動も可能にする
+      const isGrave = (zone === 'graveyard' || zone === 'opp-graveyard');
       // 効果解決モード (isEffectMode) が ON の場合は、手動移動用のメニューも手札以外で表示する
-      const showMoveMenus = isHand || isEffectMode;
+      const showMoveMenus = isHand || isGrave || isEffectMode;
 
       document.getElementById('menu-tap').style.display = (zone === 'my-battle' || zone === 'opp-battle' || zone === 'mana' || zone === 'opp-mana') ? 'block' : 'none';
       document.getElementById('menu-attack').style.display = (zone === 'my-battle' || zone === 'opp-battle') ? 'block' : 'none';
@@ -2469,9 +2544,15 @@
       // 移動メニューの表示切り替え
       document.getElementById('menu-hand-summon').style.display = showMoveMenus ? 'block' : 'none';
       document.getElementById('menu-hand-mana').style.display = showMoveMenus ? 'block' : 'none';
+      
+      const menuToHand = document.getElementById('menu-hand-to-hand');
+      if (menuToHand) {
+        menuToHand.style.display = (zone !== 'hand' && showMoveMenus) ? 'block' : 'none';
+      }
+      
       document.getElementById('menu-hand-shield-face-down').style.display = showMoveMenus ? 'block' : 'none';
       document.getElementById('menu-hand-shield-face-up').style.display = showMoveMenus ? 'block' : 'none';
-      document.getElementById('menu-hand-graveyard').style.display = showMoveMenus ? 'block' : 'none';
+      document.getElementById('menu-hand-graveyard').style.display = (zone !== 'graveyard' && zone !== 'opp-graveyard' && showMoveMenus) ? 'block' : 'none';
       document.getElementById('menu-hand-deck-top').style.display = showMoveMenus ? 'block' : 'none';
       document.getElementById('menu-hand-deck-bottom').style.display = showMoveMenus ? 'block' : 'none';
 
@@ -2489,9 +2570,16 @@
       document.getElementById('card-context-menu').style.display = 'none';
     }
 
-    // クリック以外でメニューを閉じる ＆ 手札選択状態の解除
+    // クリック以外でメニューを閉じる ＆ 手札選択状態の解除 ＆ 墓地サイドバーを閉じる
     document.addEventListener('click', (evt) => {
       closeCardInteractionMenu();
+
+      // 墓地サイドバーの外側をクリックした場合、かつ墓地パイル自体をクリックしたわけではない場合、サイドバーを閉じる
+      if (!evt.target.closest('#graveyard-sidebar') && 
+          !evt.target.closest('#my-grave-pile') && 
+          !evt.target.closest('#opp-grave-pile')) {
+        closeGraveSidebar();
+      }
 
       // 手札のカード自体のクリックでなければ、すべての手札の選択状態を解除する
       if (!evt.target.closest('#my-hand .card')) {
@@ -2677,6 +2765,17 @@
         to_zone: 'deck',
         position: position,
         index: null
+      });
+      closeCardInteractionMenu();
+    }
+
+    function handleMenuHandToHand() {
+      if (!clickedCardUuid || !clickedCardZone) return;
+      sendAction({
+        action: 'move_card',
+        card_uuid: clickedCardUuid,
+        from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
+        to_zone: 'hand'
       });
       closeCardInteractionMenu();
     }
