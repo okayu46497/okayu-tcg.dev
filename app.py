@@ -174,38 +174,78 @@ def next_card_id(cards: list[dict]) -> int:
 
 def load_decks() -> list[dict]:
     """Supabase もしくは decks.json からデッキ一覧を読み込む"""
-    if not SUPABASE_KEY:
+    raw_decks = []
+    from_supabase = False
+
+    if SUPABASE_KEY:
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/user_decks?select=*&order=id.asc"
+            resp = requests.get(url, headers=get_supabase_headers(), timeout=5)
+            if resp.status_code == 200:
+                raw_decks = resp.json()
+                from_supabase = True
+            else:
+                print(f"Supabase load_decks failed (status={resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"Error loading decks from Supabase: {e}")
+
+    if not from_supabase:
         if not DECKS_PATH.exists():
             return []
-        with open(DECKS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    try:
-        url = f"{SUPABASE_URL}/rest/v1/user_decks?select=*&order=id.asc"
-        resp = requests.get(url, headers=get_supabase_headers(), timeout=5)
-        if resp.status_code == 200:
-            raw_decks = resp.json()
-            decks = []
-            for d in raw_decks:
-                decks.append({
-                    "id": d["id"],
-                    "name": d["name"],
-                    "owner": d["owner"],
-                    "cards": d["cards"],
-                    "card_count": d["card_count"],
-                    "sleeve_type": d.get("sleeve_type", "normal"),
-                    "sleeve_image": d.get("sleeve_image"),
-                    "created_at": d.get("created_at")
-                })
-            return decks
-        else:
-            print(f"Supabase load_decks failed (status={resp.status_code}): {resp.text}")
-    except Exception as e:
-        print(f"Error loading decks from Supabase: {e}")
-        
-    if DECKS_PATH.exists():
-        with open(DECKS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
+        try:
+            with open(DECKS_PATH, "r", encoding="utf-8") as f:
+                raw_decks = json.load(f)
+        except Exception as e:
+            print(f"Error loading local decks.json: {e}")
+            return []
+
+    # デッキ内の古い手動IDを公式IDへマイグレーション
+    decks = []
+    migration_needed = False
+
+    for d in raw_decks:
+        original_cards = d.get("cards", [])
+        new_cards = []
+        replaced_any = False
+
+        for cid in original_cards:
+            resolved_cid = cid
+            try:
+                # cid が数値、もしくは数値の文字列の場合に MIGRATION_MAP を参照
+                int_cid = int(cid)
+                if int_cid in MIGRATION_MAP:
+                    resolved_cid = MIGRATION_MAP[int_cid]
+                    replaced_any = True
+                    migration_needed = True
+            except (ValueError, TypeError):
+                pass
+            new_cards.append(resolved_cid)
+
+        deck_data = {
+            "id": d["id"],
+            "name": d["name"],
+            "owner": d["owner"],
+            "cards": new_cards,
+            "card_count": len(new_cards),
+            "sleeve_type": d.get("sleeve_type", "normal"),
+            "sleeve_image": d.get("sleeve_image"),
+            "created_at": d.get("created_at")
+        }
+        decks.append(deck_data)
+
+        if replaced_any:
+            print(f"Migrated deck '{d['name']}' (ID: {d['id']}, Owner: {d['owner']}): Replaced manual card IDs with official string IDs.")
+
+    # マイグレーションが行われた場合は即時保存
+    if migration_needed:
+        print("Saving migrated decks back to DB/file...")
+        try:
+            save_decks(decks)
+        except Exception as e:
+            print(f"Error saving migrated decks: {e}")
+
+    return decks
+
 
 
 def save_decks(decks: list[dict]):
@@ -315,15 +355,17 @@ CARD_MAP_V2: dict[str, dict] = {}
 # ハイブリッド統合インデックス用のグローバル変数
 ALL_CARDS_COMBINED: list[dict] = []
 CARD_MAP_COMBINED: dict[str | int, dict] = {}
+MIGRATION_MAP: dict[int, str] = {}  # 古い手動IDから公式IDへのマイグレーションマップ
 
 def rebuild_combined_cards():
     """
     公式DB (cards_v2.db) とユーザー手動登録 (cards.json) を統合し、高速検索インデックスを再構築する。
     同名カードがある場合、公式データを優先して重複（手動側）を非表示にするマスク処理を自動で行う。
     """
-    global ALL_CARDS_COMBINED, CARD_MAP_COMBINED
+    global ALL_CARDS_COMBINED, CARD_MAP_COMBINED, MIGRATION_MAP
     combined_list = []
     combined_map = {}
+    migration_map = {}
 
     # 1. 公式マスタデータをロード
     for card in ALL_CARDS_V2:
@@ -333,14 +375,37 @@ def rebuild_combined_cards():
         combined_map[card_copy["card_id"]] = card_copy
 
     # 2. ユーザー登録カードをロード (公式と重複する同名カードはマスク)
-    official_names = {c["card_name"].strip().lower() for c in ALL_CARDS_V2}
+    # 表記揺れ（全角・半角スペース、英数字全角・半角）を考慮した正規化
+    def normalize_name(name):
+        if not name:
+            return ""
+        name = name.replace("　", "").replace(" ", "")
+        name = name.translate(str.maketrans(
+            '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ',
+            '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+        ))
+        return name.lower().strip()
+
+    official_by_norm_name = {}
+    for c in ALL_CARDS_V2:
+        norm_name = normalize_name(c["card_name"])
+        if norm_name not in official_by_norm_name:
+            official_by_norm_name[norm_name] = c
 
     for card in ALL_CARDS:
         card_name = card.get("name", "").strip()
-        card_name_lower = card_name.lower()
+        norm_mname = normalize_name(card_name)
 
         # 同名カードが公式マスタにある場合はマスク（非表示）
-        if card_name_lower in official_names:
+        if norm_mname in official_by_norm_name:
+            off_card = official_by_norm_name[norm_mname]
+            # 既存デッキが古い手動IDで参照している場合のためにエイリアスを登録
+            card_copy = dict(off_card)
+            card_copy["is_official"] = True
+            combined_map[card["id"]] = card_copy
+            combined_map[str(card["id"])] = card_copy
+            # 古い手動IDから公式IDへのマッピングを記録
+            migration_map[card["id"]] = off_card["card_id"]
             continue
 
         # v2 のデータ構造に合わせてフォーマット
@@ -363,7 +428,10 @@ def rebuild_combined_cards():
 
     ALL_CARDS_COMBINED = combined_list
     CARD_MAP_COMBINED = combined_map
+    MIGRATION_MAP = migration_map
     print(f"Rebuilt hybrid card database: {len(ALL_CARDS_COMBINED)} cards loaded (Official: {len(ALL_CARDS_V2)}, Manual: {len(ALL_CARDS_COMBINED) - len(ALL_CARDS_V2)})")
+    print(f"Migration map created with {len(MIGRATION_MAP)} items.")
+
 
 def load_cards_v2():
     global ALL_CARDS_V2, CARD_MAP_V2

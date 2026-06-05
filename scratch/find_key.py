@@ -11,25 +11,21 @@ def find_key():
         
     print(f"Searching {transcript_path}...")
     
-    supabase_key = None
-    with open(transcript_path, "r", encoding="utf-8") as f:
+    with open(transcript_path, "r", encoding="utf-8", errors="ignore") as f:
         for idx, line in enumerate(f):
-            if "SUPABASE_KEY" in line:
-                # Let's inspect this line
+            if "migrate_to_supabase.py" in line:
                 try:
                     obj = json.loads(line)
-                    # Look inside tool_calls or content
-                    content = obj.get("content", "")
-                    if "SUPABASE_KEY" in content and len(content) < 500:
-                        print(f"Line {idx} content: {content}")
-                        
                     tool_calls = obj.get("tool_calls", [])
                     for tc in tool_calls:
-                        args = tc.get("argumentsJson", "")
-                        if "SUPABASE_KEY" in args and len(args) < 500:
-                            print(f"Line {idx} tool call {tc.get('name')}: {args}")
-                except Exception:
+                        print(f"Line {idx} Tool call {tc.get('name')}: {tc.get('argumentsJson')}")
+                except Exception as e:
                     pass
 
 if __name__ == "__main__":
     find_key()
+
+
+
+
+
