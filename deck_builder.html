@@ -1084,6 +1084,137 @@
         border-radius: 6px;
       }
     }
+    /* Version Selector Modal Styling */
+    .version-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--accent);
+      color: #fff;
+      font-size: 8px;
+      font-weight: bold;
+      padding: 1px 6px;
+      border-radius: 20px;
+      box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .version-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      padding: 8px 4px;
+      box-sizing: border-box;
+    }
+
+    .version-select-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .version-select-card:hover {
+      transform: translateY(-5px) scale(1.02);
+      border-color: var(--accent);
+      box-shadow: 0 10px 25px var(--accent-glow);
+    }
+
+    .version-img-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 7/10;
+      overflow: hidden;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .version-select-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(139, 92, 246, 0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      backdrop-filter: blur(2px);
+    }
+
+    .version-select-overlay span {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      border: 1.5px solid #fff;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .version-select-card:hover .version-select-overlay {
+      opacity: 1;
+    }
+
+    .version-details {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      justify-content: space-between;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .version-id-badge {
+      font-size: 8px;
+      font-weight: bold;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .version-meta {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .version-civ {
+      font-size: 9px;
+      color: var(--text-dim);
+      font-weight: bold;
+    }
+
+    .version-select-card.civ-fire { border-color: rgba(239, 68, 68, 0.25); background: linear-gradient(180deg, #180303, #240505); }
+    .version-select-card.civ-water { border-color: rgba(59, 130, 246, 0.25); background: linear-gradient(180deg, #030818, #051024); }
+    .version-select-card.civ-light { border-color: rgba(250, 204, 21, 0.25); background: linear-gradient(180deg, #181503, #242105); }
+    .version-select-card.civ-darkness { border-color: rgba(168, 85, 247, 0.25); background: linear-gradient(180deg, #0d0318, #150524); }
+    .version-select-card.civ-nature { border-color: rgba(34, 197, 94, 0.25); background: linear-gradient(180deg, #031805, #05240c); }
+    .version-select-card.civ-zero { border-color: rgba(156, 163, 175, 0.25); background: linear-gradient(180deg, #101010, #181818); }
+
+    @media (max-width: 768px) {
+      .version-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .version-modal-box {
+        padding: 20px;
+      }
+      .version-select-overlay span {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+    }
   </style>
 </head>
 
@@ -1323,20 +1454,119 @@
 
     const typeIcons = { creature: '⚔', tamaseed: '🔮', tamaseed_creature: '🔮⚔', spell: '📜', cross_gear: '⚙', castle: '🏰', field: '🌍', dragheart: '🐉', aura: '✨', twinpact: '🔄' };
 
+    let currentSearchGroups = {};
+
+    function handlePoolCardClick(cardName) {
+      const versions = currentSearchGroups[cardName];
+      if (!versions || versions.length === 0) return;
+      
+      if (versions.length === 1) {
+        addToDeck(versions[0].id);
+      } else {
+        showVersionSelectorModal(cardName, versions);
+      }
+    }
+
+    function showVersionSelectorModal(cardName, versions) {
+      const versionsHtml = versions.map(c => {
+        const civ = getCivClass(c.civilization);
+        const ti = typeIcons[c.card_type] || '🃏';
+        const imgSrc = c.is_official ? c.image_url : (c.image ? `/static/cards/${c.image}` : '/static/通常裏面画像.jpg');
+        const img = imgSrc
+          ? `<img src="${imgSrc}" style="width:100%; aspect-ratio:7/10; object-fit:cover; border-radius:8px; display:block;" alt="${c.name}">`
+          : `<div style="width:100%; aspect-ratio:7/10; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.3); border-radius:8px; font-size:24px;">${ti}</div>`;
+        
+        const clickArg = typeof c.id === 'string' ? `'${c.id}'` : c.id;
+        
+        return `
+          <div class="version-select-card civ-${civ}" onclick="addVersionToDeck(${clickArg}, '${cardName.replace(/'/g, "\\'")}')" title="クリックしてデッキに追加">
+            <div class="version-img-container">
+              ${img}
+              <div class="version-select-overlay">
+                <span>➕ デッキに追加</span>
+              </div>
+            </div>
+            <div class="version-details">
+              <div class="version-id-badge" title="${c.id}">${c.id}</div>
+              <div class="version-meta">コスト ${c.cost} / ${c.power || ti}</div>
+              <div class="version-civ">${c.civilization || '無色'}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:999; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(8px);">
+          <div class="version-modal-box" onclick="event.stopPropagation()" style="background:var(--bg-primary); border:1.5px solid var(--accent); border-radius:24px; padding:32px; max-width:920px; width:95%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 25px 60px rgba(0,0,0,0.8); animation:fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-sizing:border-box;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:16px; width:100%;">
+              <div>
+                <h3 style="margin:0 0 4px 0; font-size:20px; color:var(--accent); font-weight:900; letter-spacing:0.5px;">🎴 バージョン選択</h3>
+                <div style="font-size:13px; color:var(--text-dim); font-weight:bold;">${cardName}</div>
+              </div>
+              <button onclick="closeModal()" style="background:transparent; border:none; color:var(--text-dim); font-size:24px; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">✕</button>
+            </div>
+
+            <div style="overflow-y:auto; flex:1; margin-bottom:16px; padding-right:8px; width:100%; box-sizing:border-box;" class="detail-scroll">
+              <div class="version-cards-grid">
+                ${versionsHtml}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function addVersionToDeck(id, cardName) {
+      addToDeck(id);
+      showToast(`「${cardName}」を追加しました`, 'success');
+      closeModal();
+    }
+
     function renderPool(cards) {
       const grid = document.getElementById('pool-grid');
       if (!cards.length) { grid.innerHTML = '<div class="empty-msg">カードが見つかりません</div>'; return; }
-      grid.innerHTML = cards.map(card => {
+      
+      // Group cards by name
+      currentSearchGroups = {};
+      cards.forEach(card => {
+        if (!currentSearchGroups[card.name]) {
+          currentSearchGroups[card.name] = [];
+        }
+        currentSearchGroups[card.name].push(card);
+      });
+      
+      // Get the first representative card of each group
+      const uniqueCards = Object.keys(currentSearchGroups).map(name => {
+        const group = currentSearchGroups[name];
+        const rep = { ...group[0] };
+        rep.versionCount = group.length;
+        return rep;
+      });
+
+      grid.innerHTML = uniqueCards.map(card => {
         const civ = getCivClass(card.civilization);
         const ti = typeIcons[card.card_type] || '🃏';
         const imgSrc = card.is_official ? card.image_url : (card.image ? `/static/cards/${card.image}` : '/static/通常裏面画像.jpg');
         const img = imgSrc
           ? `<img class="pool-card-img" src="${imgSrc}" alt="${card.name}">`
           : `<div class="pool-card-noimg">${ti}</div>`;
-        const clickArg = typeof card.id === 'string' ? `'${card.id}'` : card.id;
-        return `<div class="pool-card civ-${civ}" onclick="addToDeck(${clickArg})" title="${card.name}">
-          ${img}<div class="pool-card-body"><div class="pool-card-name">${card.name}</div>
-          <div class="pool-card-stats"><span class="cost">${card.cost}</span><span class="power">${card.power || ti}</span></div></div></div>`;
+          
+        const versionBadge = card.versionCount > 1 
+          ? `<div class="version-badge">${card.versionCount} Ver.</div>` 
+          : '';
+          
+        const escName = card.name.replace(/'/g, "\\'");
+        
+        return `<div class="pool-card civ-${civ}" onclick="handlePoolCardClick('${escName}')" title="${card.name}">
+          ${img}
+          ${versionBadge}
+          <div class="pool-card-body">
+            <div class="pool-card-name">${card.name}</div>
+            <div class="pool-card-stats">
+              <span class="cost">${card.cost}</span>
+              <span class="power">${card.power || ti}</span>
+            </div>
+          </div>
+        </div>`;
       }).join('');
     }
 
