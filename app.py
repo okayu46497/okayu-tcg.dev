@@ -372,10 +372,25 @@ def load_cards_v2():
     if SUPABASE_KEY:
         try:
             print("Loading official master cards from Supabase official_cards...")
-            url = f"{SUPABASE_URL}/rest/v1/official_cards?select=*&order=id.asc"
-            resp = requests.get(url, headers=get_supabase_headers(), timeout=15)
-            if resp.status_code == 200:
-                raw_cards = resp.json()
+            raw_cards = []
+            limit = 1000
+            offset = 0
+            while True:
+                url = f"{SUPABASE_URL}/rest/v1/official_cards?select=*&order=id.asc&limit={limit}&offset={offset}"
+                resp = requests.get(url, headers=get_supabase_headers(), timeout=15)
+                if resp.status_code == 200:
+                    chunk = resp.json()
+                    if not chunk:
+                        break
+                    raw_cards.extend(chunk)
+                    if len(chunk) < limit:
+                        break
+                    offset += limit
+                else:
+                    print(f"Failed to load chunk from Supabase official_cards (status={resp.status_code}): {resp.text}")
+                    break
+                    
+            if raw_cards:
                 ALL_CARDS_V2 = []
                 for c in raw_cards:
                     ALL_CARDS_V2.append({
@@ -395,7 +410,7 @@ def load_cards_v2():
                 rebuild_combined_cards()
                 return
             else:
-                print(f"Failed to load from Supabase official_cards (status={resp.status_code}): {resp.text}")
+                print("No cards loaded from Supabase official_cards.")
         except Exception as e:
             print(f"Error loading official cards from Supabase: {e}")
             
