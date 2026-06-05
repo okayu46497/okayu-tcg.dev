@@ -2291,6 +2291,23 @@ async def search_cards_v2(
         
     return results
 
+@app.get("/api/v2/cards/reload")
+@app.post("/api/v2/cards/reload")
+async def reload_cards_v2_api():
+    """
+    キャッシュされている公式・手動ハイブリッドデータベースをメモリ上に再ロードする
+    """
+    try:
+        load_cards_v2()
+        return {
+            "success": True,
+            "message": "Database reloaded successfully",
+            "official_count": len(ALL_CARDS_V2),
+            "combined_count": len(ALL_CARDS_COMBINED)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reload: {e}")
+
 @app.get("/api/v2/cards/{card_id}")
 async def get_card_v2(card_id: str):
     """
