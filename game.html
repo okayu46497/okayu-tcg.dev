@@ -1779,6 +1779,13 @@
       return '/static/通常裏面画像.jpg';
     }
 
+    const civMap = { '火': 'fire', '水': 'water', '光': 'light', '闇': 'darkness', '自然': 'nature', 'ゼロ': 'zero', '無': 'zero' };
+    function getCivClass(civilization) {
+      if (!civilization) return 'zero';
+      const first = civilization.replace('/', ',').split(',')[0].trim().toLowerCase();
+      return civMap[first] || first || 'zero';
+    }
+
     // ============================================================
     // State
     // ============================================================
@@ -2140,7 +2147,7 @@
       }
 
       // 2. 表向きカードの処理
-      const civ = (card.civilization || '').split(',')[0] || 'zero';
+      const civ = getCivClass(card.civilization);
       classes += ` civ-${civ}`;
 
       const isCreature = card.card_type === 'creature';

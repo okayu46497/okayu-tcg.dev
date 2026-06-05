@@ -1,0 +1,219 @@
+=== Abyss / Jashin Cards in cards_v2.db ===
+
+ID: dm25ex3-OR3
+Name: 至高の魂 アビスベル＝ジャシン帝
+Civilization: 水/闇/火
+Type: G-NEOクリーチャー
+Cost: 5
+Power: 7000
+----------------------------------------
+ID: dm25ex3-OR4
+Name: 究極の虚 ジャシン＝ヴリドガルド
+Civilization: 闇/火/自然
+Type: G-NEOクリーチャー
+Cost: 5
+Power: 7000
+----------------------------------------
+ID: dm25ex3-rp2Sec10
+Name: 片翼の魂 アビスベル
+Civilization: 水/闇/火
+Type: G-NEOクリーチャー
+Cost: 3
+Power: 3000
+----------------------------------------
+ID: dm25ex2-024
+Name: 深淵の禁忌 アビスベル=ジャシン帝
+Civilization: 闇
+Type: クリーチャー
+Cost: 13
+Power: 130000
+----------------------------------------
+ID: dm25sd1-001
+Name: 漆黒の深淵 ジャシン帝
+Civilization: 闇
+Type: タマシード/クリーチャー
+Cost: 3
+Power: 8000
+----------------------------------------
+ID: dm24ex3-rp1Sec02
+Name: 邪魂の王道 ジャシン帝
+Civilization: 闇
+Type: クリーチャー
+Cost: 3
+Power: 4000
+----------------------------------------
+ID: dm24ex3-065
+Name: 超化秘伝アビスアサルト
+Civilization: 闇
+Type: 呪文
+Cost: 5
+Power: None
+----------------------------------------
+ID: dm23ex3-ORsec2
+Name: アビスベル=覇統=ジャシン帝
+Civilization: 闇/自然
+Type: クリーチャー
+Cost: 10
+Power: 17000
+----------------------------------------
+ID: dm22ex1-099
+Name: 第六戦街 ラヴ・ガトラー / インビンシブル・アビス
+Civilization: 水
+Type: クリーチャー
+Cost: 6
+Power: 7000
+----------------------------------------
+ID: dmrp20-004
+Name: 終剣連結 アビスハリケーン
+Civilization: 火
+Type: クリーチャー
+Cost: 6
+Power: 6000
+----------------------------------------
+ID: dmrp16-s03
+Name: 月に彷徨うアビス
+Civilization: 闇
+Type: クリーチャー
+Cost: 6
+Power: 8000
+----------------------------------------
+ID: dmx18-012
+Name: 深淵の悪魔龍 バセオアビス
+Civilization: 闇
+Type: クリーチャー
+Cost: 6
+Power: 6000
+----------------------------------------
+ID: dmc61-040
+Name: 蒼神龍リフレイン・アビス
+Civilization: 水
+Type: クリーチャー
+Cost: 7
+Power: 6000
+----------------------------------------
+ID: dmc34-012
+Name: 封魔アビス・ムグムール
+Civilization: 闇
+Type: クリーチャー
+Cost: 7
+Power: 6000
+----------------------------------------
+ID: dm06-006
+Name: インビンシブル・アビス
+Civilization: 闇
+Type: 呪文
+Cost: 13
+Power: None
+----------------------------------------
+ID: dm04-041
+Name: チアフル・アビス
+Civilization: 水
+Type: クリーチャー
+Cost: 4
+Power: 2000
+----------------------------------------
+ID: dmart25-002
+Name: アビスベル＝覇＝ロード
+Civilization: 闇/自然
+Type: クリーチャー
+Cost: 7
+Power: 11000
+----------------------------------------
+ID: promoy24-spd1201
+Name: 至高の邪神 アビスベル
+Civilization: 闇
+Type: NEOクリーチャー
+Cost: 4
+Power: 7000
+----------------------------------------
+ID: promoy23-spd1101
+Name: ハイパー＝暴＝ジャシン帝
+Civilization: 闇
+Type: クリーチャー
+Cost: 7
+Power: 8000
+----------------------------------------
+ID: promoy21-901
+Name: 深淵大帝 ジャシン
+Civilization: 闇
+Type: クリーチャー
+Cost: 5
+Power: 7000
+----------------------------------------
+ID: promoy25-020
+Name: アビスベル=ジャシン帝
+Civilization: 闇
+Type: クリーチャー
+Cost: 4
+Power: 7000
+----------------------------------------
+ID: promoy24-001
+Name: 淵魂 グレート＝ジャシン帝
+Civilization: 水/闇/火
+Type: G-NEOクリーチャー
+Cost: 4
+Power: 5000
+----------------------------------------
+ID: promoy24-089
+Name: 禁忌の昇淵 アビスベル
+Civilization: 闇
+Type: クリーチャー
+Cost: 4
+Power: 7000
+----------------------------------------
+ID: promoy24-113
+Name: 愛の終淵 ジャシン帝
+Civilization: 水/闇/火
+Type: クリーチャー
+Cost: 8
+Power: 8000
+----------------------------------------
+ID: promoy24-120
+Name: アビスラブ=ジャシン帝
+Civilization: 水/闇/火
+Type: NEOクリーチャー
+Cost: 5
+Power: 9000
+----------------------------------------
+ID: promoy23-000
+Name: 邪魂のジャシン帝
+Civilization: 闇
+Type: クリーチャー
+Cost: 4
+Power: 4000
+----------------------------------------
+ID: promoy23-083
+Name: 邪道の王道 ジャシン帝
+Civilization: 闇
+Type: クリーチャー
+Cost: 7
+Power: 10000
+----------------------------------------
+ID: promoy22-060
+Name: 深淵秘伝アビス・インベージョン
+Civilization: 闇
+Type: 呪文
+Cost: 3
+Power: None
+----------------------------------------
+ID: promoy21-012
+Name: 深淵の支配者 ジャシン
+Civilization: 闇
+Type: タマシード/クリーチャー
+Cost: 4
+Power: 9000
+----------------------------------------
+ID: promoy21-036
+Name: 斬札ウィン＆ジャシン
+Civilization: 闇
+Type: 呪文
+Cost: 4
+Power: None
+----------------------------------------
+ID: promoy21-051
+Name: 深淵からの復活 ジャシン帝
+Civilization: 闇
+Type: クリーチャー
+Cost: 3
+Power: 6000
+----------------------------------------
