@@ -1361,6 +1361,20 @@
       background: rgba(108, 99, 255, 0.15) !important;
       transform: scale(1.15);
     }
+    
+    /* 効果解決モード時のビジュアル演出 */
+    .effect-mode-active {
+      box-shadow: inset 0 0 20px rgba(16, 185, 129, 0.35) !important;
+      border: 2px solid rgba(16, 185, 129, 0.5) !important;
+      animation: pulse-border 2s infinite alternate;
+    }
+    @keyframes pulse-border {
+      0% { border-color: rgba(16, 185, 129, 0.3); box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.2); }
+      100% { border-color: rgba(16, 185, 129, 0.7); box-shadow: inset 0 0 30px rgba(16, 185, 129, 0.5); }
+    }
+    .effect-mode-active .top-bar {
+      border-bottom: 2px solid var(--success) !important;
+    }
   </style>
 </head>
 
@@ -1403,7 +1417,13 @@
         <div class="turn-indicator opponent-turn" id="turn-indicator">ターン 1</div>
         <div class="player-avatar you phone-only-avatar" id="phone-my-avatar" style="width:24px; height:24px; font-size:12px; cursor:pointer;" onclick="showMyProfile()" title="自分のプロフィール">👤</div>
       </div>
-      <button class="btn-small" onclick="location.href='/'">🏠 退出</button>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <label id="effect-mode-toggle-container" style="display:flex; align-items:center; gap:4px; font-size:10px; cursor:pointer; color:var(--text-dim); user-select:none; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); transition: all 0.2s;">
+          <input type="checkbox" id="effect-mode-checkbox" onchange="toggleEffectMode(this.checked)" style="cursor:pointer; width:12px; height:12px; margin:0;">
+          <span>📣 効果解決モード</span>
+        </label>
+        <button class="btn-small" onclick="location.href='/'">🏠 退出</button>
+      </div>
     </div>
 
     <!-- Field -->
@@ -1818,6 +1838,7 @@
     // Double tap tracking for hand cards
     let lastHandCardTapTime = 0;
     let lastHandCardUuid = null;
+    let isEffectMode = false; // 効果解決モード（自由移動）
 
     // ============================================================
     // WebSocket接続
@@ -1857,7 +1878,19 @@
         gameState = data;
         if (data.turn_player_id !== PLAYER_ID) {
           hasDeclaredEffect = false;
+          if (isEffectMode) toggleEffectMode(false); // 相手ターンに変わったら解除
         }
+
+        // ログの最新行に効果宣言があれば、効果解決モードを自動ONにする
+        if (data.logs && data.logs.length > 0) {
+          const lastLog = data.logs[data.logs.length - 1];
+          if (lastLog.includes('📣')) {
+            if (!isEffectMode) {
+              toggleEffectMode(true);
+            }
+          }
+        }
+
         document.getElementById('overlay-waiting').classList.add('hidden');
         document.getElementById('game-container').style.display = '';
         renderGame();
@@ -2098,7 +2131,8 @@
     // ============================================================
     function createCardHTML(card, zone, isTapped = false, isSick = false) {
       // ドラッグ可能判定 (手札、自分のバトルゾーン、墓地、山札閲覧、相手手札、シールド)
-      const isDraggable = (zone === 'hand' || zone === 'my-battle' || zone === 'graveyard' || zone === 'deck-view' || zone === 'opp-hand' || zone === 'shields') && gameState;
+      // 効果解決モード (isEffectMode) が ON の場合は、すべてのゾーン (相手の場、マナ、自分のマナ等) でドラッグ可能とする
+      const isDraggable = (isEffectMode || zone === 'hand' || zone === 'my-battle' || zone === 'graveyard' || zone === 'deck-view' || zone === 'opp-hand' || zone === 'shields' || zone === 'mana' || zone === 'opp-battle' || zone === 'opp-mana' || zone === 'opp-graveyard' || zone === 'opp-shields') && gameState;
 
       const draggableAttr = isDraggable ? 'draggable="true"' : '';
       const sourceZone = zone === 'deck-view' ? 'deck' : zone;
@@ -2383,8 +2417,9 @@
         return;
       }
 
-      // 自分自身が操作可能なカードのみメニューを起動する（マナは即時トグルのため除外）
-      if (zone === 'hand' || zone === 'my-battle' || zone === 'shields') {
+      // 自分自身が操作可能なカード、または効果解決モード(isEffectMode)がONのときは相手の場、手札、シールド、墓地などもメニューを起動可能とする
+      if (zone === 'hand' || zone === 'my-battle' || zone === 'shields' || 
+          (isEffectMode && (zone === 'opp-battle' || zone === 'opp-hand' || zone === 'opp-shields' || zone === 'graveyard' || zone === 'opp-graveyard'))) {
         if (zone === 'hand') {
           const now = Date.now();
           const isDoubleTap = (lastHandCardUuid === uuid && (now - lastHandCardTapTime) < 300);
@@ -2424,18 +2459,21 @@
 
       // ゾーンに応じたメニューアイテムの切り替え
       const isHand = (zone === 'hand');
-      document.getElementById('menu-tap').style.display = (zone === 'my-battle' || zone === 'mana') ? 'block' : 'none';
-      document.getElementById('menu-attack').style.display = (zone === 'my-battle') ? 'block' : 'none';
+      // 効果解決モード (isEffectMode) が ON の場合は、手動移動用のメニューも手札以外で表示する
+      const showMoveMenus = isHand || isEffectMode;
+
+      document.getElementById('menu-tap').style.display = (zone === 'my-battle' || zone === 'opp-battle' || zone === 'mana' || zone === 'opp-mana') ? 'block' : 'none';
+      document.getElementById('menu-attack').style.display = (zone === 'my-battle' || zone === 'opp-battle') ? 'block' : 'none';
       document.getElementById('menu-effect').style.display = 'block'; // どのカード効果でも宣言可能
 
-      // 手札用移動メニューの表示切り替え
-      document.getElementById('menu-hand-summon').style.display = isHand ? 'block' : 'none';
-      document.getElementById('menu-hand-mana').style.display = isHand ? 'block' : 'none';
-      document.getElementById('menu-hand-shield-face-down').style.display = isHand ? 'block' : 'none';
-      document.getElementById('menu-hand-shield-face-up').style.display = isHand ? 'block' : 'none';
-      document.getElementById('menu-hand-graveyard').style.display = isHand ? 'block' : 'none';
-      document.getElementById('menu-hand-deck-top').style.display = isHand ? 'block' : 'none';
-      document.getElementById('menu-hand-deck-bottom').style.display = isHand ? 'block' : 'none';
+      // 移動メニューの表示切り替え
+      document.getElementById('menu-hand-summon').style.display = showMoveMenus ? 'block' : 'none';
+      document.getElementById('menu-hand-mana').style.display = showMoveMenus ? 'block' : 'none';
+      document.getElementById('menu-hand-shield-face-down').style.display = showMoveMenus ? 'block' : 'none';
+      document.getElementById('menu-hand-shield-face-up').style.display = showMoveMenus ? 'block' : 'none';
+      document.getElementById('menu-hand-graveyard').style.display = showMoveMenus ? 'block' : 'none';
+      document.getElementById('menu-hand-deck-top').style.display = showMoveMenus ? 'block' : 'none';
+      document.getElementById('menu-hand-deck-bottom').style.display = showMoveMenus ? 'block' : 'none';
 
       // 画面端からはみ出さないように配置
       const menuWidth = 180;
@@ -2465,9 +2503,66 @@
 
     // --- メニューアクションハンドラ ---
 
+    function toggleEffectMode(active) {
+      isEffectMode = active;
+      const checkbox = document.getElementById('effect-mode-checkbox');
+      if (checkbox) checkbox.checked = active;
+
+      const label = document.getElementById('effect-mode-toggle-container');
+      const container = document.getElementById('game-container');
+
+      if (active) {
+        if (label) {
+          label.style.color = 'var(--success)';
+          label.style.borderColor = 'var(--success)';
+          label.style.fontWeight = 'bold';
+        }
+        if (container) container.classList.add('effect-mode-active');
+        showToast('📣 効果解決モードが有効になりました。全ゾーンでカード移動が自由です。', 'success');
+      } else {
+        if (label) {
+          label.style.color = 'var(--text-dim)';
+          label.style.borderColor = 'rgba(255,255,255,0.08)';
+          label.style.fontWeight = 'normal';
+        }
+        if (container) container.classList.remove('effect-mode-active');
+      }
+
+      // 動的に全てのカード要素の draggable 属性やスタイルを更新
+      if (gameState) {
+        document.querySelectorAll('.card').forEach(cardEl => {
+          const zone = cardEl.dataset.zone;
+          const uuid = cardEl.dataset.uuid;
+          const isDraggable = (active || ['hand', 'my-battle', 'graveyard', 'deck-view', 'opp-hand', 'shields'].includes(zone)) && gameState;
+          cardEl.setAttribute('draggable', isDraggable ? 'true' : 'false');
+          if (isDraggable) {
+            const sourceZone = zone === 'deck-view' ? 'deck' : zone;
+            cardEl.setAttribute('ondragstart', `onCardDragStart(event, '${uuid}', '${sourceZone}')`);
+            cardEl.setAttribute('ondragend', "onCardDragEnd(event)");
+            cardEl.style.cursor = 'grab';
+          } else {
+            cardEl.removeAttribute('ondragstart');
+            cardEl.removeAttribute('ondragend');
+            cardEl.style.cursor = 'default';
+          }
+        });
+      }
+    }
+
     function handleMenuHandSummon() {
-      if (!clickedCardUuid) return;
+      if (!clickedCardUuid || !clickedCardZone) return;
       const uuid = clickedCardUuid;
+
+      if (isEffectMode) {
+        sendAction({
+          action: 'move_card',
+          card_uuid: uuid,
+          from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
+          to_zone: 'battle'
+        });
+        closeCardInteractionMenu();
+        return;
+      }
 
       // 手札からバトルゾーンへの召喚・呪文詠唱の処理を実行
       const card = gameState.you.hand.find(c => c.uuid === uuid);
@@ -2507,8 +2602,20 @@
     }
 
     function handleMenuHandMana() {
-      if (!clickedCardUuid) return;
+      if (!clickedCardUuid || !clickedCardZone) return;
       const uuid = clickedCardUuid;
+
+      if (isEffectMode) {
+        sendAction({
+          action: 'move_card',
+          card_uuid: uuid,
+          from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
+          to_zone: 'mana'
+        });
+        closeCardInteractionMenu();
+        return;
+      }
+
       const isMyTurn = gameState.turn_player_id === PLAYER_ID;
 
       if (!isMyTurn) {
@@ -2539,11 +2646,11 @@
     }
 
     function handleMenuHandShield(faceUp) {
-      if (!clickedCardUuid) return;
+      if (!clickedCardUuid || !clickedCardZone) return;
       sendAction({
         action: 'move_card',
         card_uuid: clickedCardUuid,
-        from_zone: 'hand',
+        from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
         to_zone: 'shields',
         face_up: faceUp
       });
@@ -2551,22 +2658,22 @@
     }
 
     function handleMenuHandGraveyard() {
-      if (!clickedCardUuid) return;
+      if (!clickedCardUuid || !clickedCardZone) return;
       sendAction({
         action: 'move_card',
         card_uuid: clickedCardUuid,
-        from_zone: 'hand',
+        from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
         to_zone: 'graveyard'
       });
       closeCardInteractionMenu();
     }
 
     function handleMenuHandDeck(position) {
-      if (!clickedCardUuid) return;
+      if (!clickedCardUuid || !clickedCardZone) return;
       sendAction({
         action: 'move_card',
         card_uuid: clickedCardUuid,
-        from_zone: 'hand',
+        from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
         to_zone: 'deck',
         position: position,
         index: null
@@ -2613,9 +2720,10 @@
       const choicesList = document.getElementById('effect-choices-list');
       choicesList.innerHTML = '';
 
-      if (card && card.text) {
+      const cardText = card ? (card.text || card.ability_text || '') : '';
+      if (card && cardText) {
         // 改行で分割し、■ または > で始まる行を抽出
-        const lines = card.text.split(/[\r\n]+/);
+        const lines = cardText.split(/[\r\n]+/);
         const parsedChoices = [];
         lines.forEach(line => {
           const trimmed = line.trim();
@@ -3050,6 +3158,10 @@
       }
       // --- 7. 手札からバトルゾーンへの召喚：登場選択モーダルなしで、マナタップチェック後に召喚 ---
       else if (action === 'summon_or_spell' && dragCardSource === 'hand') {
+        if (isEffectMode) {
+          sendAction({ action: 'move_card', card_uuid: uuid, from_zone: dragCardSource, to_zone: 'battle' });
+          return;
+        }
         const isMyTurn = gameState.turn_player_id === PLAYER_ID;
         if (!isMyTurn) {
           showToast('あなたのターンではありません', 'error');
@@ -3088,6 +3200,10 @@
       }
       // --- 8. 手札からマナゾーンへのチャージ：モーダルなしで即時通常チャージ ＆ 2回目以降は効果宣言時のみ ---
       else if (action === 'charge_mana' && dragCardSource === 'hand') {
+        if (isEffectMode) {
+          sendAction({ action: 'move_card', card_uuid: uuid, from_zone: dragCardSource, to_zone: 'mana' });
+          return;
+        }
         const hasCharged = gameState.you.has_charged_mana;
         const isMyTurn = gameState.turn_player_id === PLAYER_ID;
 
@@ -3171,6 +3287,7 @@
 
     function endTurn() {
       hasDeclaredEffect = false;
+      toggleEffectMode(false);
       sendAction({ action: 'end_turn' });
     }
 

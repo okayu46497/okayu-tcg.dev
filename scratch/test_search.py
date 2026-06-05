@@ -1,6 +1,5 @@
 import asyncio
 import sys
-import json
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
@@ -10,49 +9,29 @@ import app
 
 async def test_search():
     print(f"Total Combined Cards: {len(app.ALL_CARDS_COMBINED)}")
-    print(f"Migration Map Items count: {len(app.MIGRATION_MAP)}")
-    for k, v in app.MIGRATION_MAP.items():
-        print(f"  {k} -> {v}")
+    
+    # Check if a card has both text and ability_text keys
+    if len(app.ALL_CARDS_COMBINED) > 0:
+        c = app.ALL_CARDS_COMBINED[0]
+        print(f"Card example: {c.get('card_name')} ({c.get('card_id')})")
+        print(f"  Has 'text' key? {'text' in c}")
+        print(f"  Has 'ability_text' key? {'ability_text' in c}")
+        print(f"  text: {c.get('text')[:30] if c.get('text') else None}...")
+        print(f"  ability_text: {c.get('ability_text')[:30] if c.get('ability_text') else None}...")
         
-    print("\n--- Testing fallback aliases ---")
-    # Test looking up manual IDs that are masked
-    test_ids = [1, 6, 10, 11, 12, 13]
-    for cid in test_ids:
-        card = app.CARD_MAP_COMBINED.get(cid)
-        if card:
-            print(f"ID {cid} -> Found card: {card['card_id']} ({card['card_name']}) | Official: {card['is_official']}")
+        # Test finding cards and declaring their text
+        print("\nChecking test official card (百発人形マグナム) text property:")
+        magnum = next((x for x in app.ALL_CARDS_COMBINED if x.get('card_id') == 'dmex17-Cho10'), None)
+        if magnum:
+            print(f"Found {magnum['card_name']}!")
+            print(f"  text: {magnum.get('text')}")
+            print(f"  ability_text: {magnum.get('ability_text')}")
         else:
-            print(f"ID {cid} -> NOT FOUND!")
-
-    print("\n--- Testing load_decks() migration ---")
-    # Before loading, let's backup decks.json in memory
-    backup = None
-    if app.DECKS_PATH.exists():
-        with open(app.DECKS_PATH, "r", encoding="utf-8") as f:
-            backup = json.load(f)
-            
-    print("Executing load_decks()...")
-    decks = app.load_decks()
-    
-    print("\nAfter migration check:")
-    for d in decks:
-        if d["name"] == "黒単アビス":
-            print(f"Deck '{d['name']}' (ID: {d['id']}, Owner: {d['owner']}):")
-            print(f"Cards in deck: {d['cards'][:15]}... (total {len(d['cards'])})")
-            
-    # Check if cards are still numbers or string IDs
-    has_ints = any(isinstance(c, int) for d in decks for c in d["cards"])
-    print(f"Any integer card IDs left in loaded decks? {has_ints}")
-    
-    # Restore the backup to avoid permanent changes to decks.json if not desired yet
-    # Actually, we want to write it out to verify it works, but let's see.
-    if backup:
-        with open(app.DECKS_PATH, "w", encoding="utf-8") as f:
-            json.dump(backup, f, ensure_ascii=False, indent=2)
-        print("Restored backup of decks.json to keep it clean during testing.")
+            print("Magnum not found!")
 
 if __name__ == "__main__":
     asyncio.run(test_search())
+
 
 
 

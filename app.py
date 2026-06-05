@@ -371,6 +371,8 @@ def rebuild_combined_cards():
     for card in ALL_CARDS_V2:
         card_copy = dict(card)
         card_copy["is_official"] = True
+        # game.htmlで効果を宣言する際に、text属性から効果を引っ張ってくるためのマッピング
+        card_copy["text"] = card_copy.get("ability_text", "")
         combined_list.append(card_copy)
         combined_map[card_copy["card_id"]] = card_copy
 
@@ -402,6 +404,7 @@ def rebuild_combined_cards():
             # 既存デッキが古い手動IDで参照している場合のためにエイリアスを登録
             card_copy = dict(off_card)
             card_copy["is_official"] = True
+            card_copy["text"] = card_copy.get("ability_text", "")
             combined_map[card["id"]] = card_copy
             combined_map[str(card["id"])] = card_copy
             # 古い手動IDから公式IDへのマッピングを記録
@@ -418,6 +421,7 @@ def rebuild_combined_cards():
             "cost": card.get("cost"),
             "power": card.get("power"),
             "race": card.get("race"),
+            "text": card.get("text", ""),
             "ability_text": card.get("text", ""),
             "image_url": f"/static/cards/{card.get('image')}" if card.get("image") else "/static/通常裏面画像.jpg",
             "is_official": False
