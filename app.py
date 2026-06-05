@@ -729,6 +729,42 @@ class GameRoom:
                 return pid
         return None
 
+    def _get_break_count(self, card: dict) -> int:
+        """カードの効果テキストからブレイク能力を判定して枚数を返す"""
+        ability_text = card.get("ability_text") or card.get("text") or ""
+
+        # ワールド・ブレイカー、G・ブレイカー、ドラゴン・ワールド・ブレイカー (全ブレイク)
+        if any(x in ability_text for x in ["ワールド・ブレイカー", "G・ブレイカー", "ドラゴン・ワールド・ブレイカー"]):
+            return 99
+
+        # Q・ブレイカー (4枚)
+        if "Q・ブレイカー" in ability_text or "Q・" in ability_text:
+            return 4
+
+        # T・ブレイカー (3枚)
+        if any(x in ability_text for x in ["T・ブレイカー", "マスター・T・ブレイカー", "ドラゴン・T・ブレイカー"]):
+            return 3
+
+        # W・ブレイカー (2枚)
+        if any(x in ability_text for x in ["W・ブレイカー", "Ｗ・ブレイカー", "Wダブル・ブレイカー", "マスター・W・ブレイカー", "ドラゴン・W・ブレイカー"]):
+            return 2
+
+        # パワード・ブレイカー (パワー6000ごとに+1枚)
+        if "パワード・ブレイカー" in ability_text:
+            power_val = 0
+            p = card.get("power", 0)
+            if p is not None:
+                if isinstance(p, int):
+                    power_val = p
+                elif isinstance(p, str):
+                    import re
+                    m = re.search(r'\d+', p)
+                    if m:
+                        power_val = int(m.group(0))
+            return max(1, 1 + power_val // 6000)
+
+        return 1
+
     def start_game(self):
         """ゲーム開始"""
         self.phase = "playing"
@@ -798,6 +834,7 @@ class GameRoom:
 
     def action_move_card(self, player_id: str, card_uuid: str, from_zone: str, to_zone: str, position: str = 'top', index: Optional[int] = None, face_up: Optional[bool] = None) -> dict:
         """任意のゾーンから任意のゾーンへカードを直接移動する"""
+        current_atk = self.current_attack
         self.current_attack = None  # アクションが起きたら攻撃中表示をクリア
         player = self.players[player_id]
         opponent_id = self.get_opponent_id(player_id)
@@ -953,6 +990,70 @@ class GameRoom:
         else:
             dst_list.append(card)
 
+        # 複数枚シールドブレイク（ブレイカー能力）の自動処理
+        broken_additional_cards = []
+        attacker_card = None
+        breaker_type = "ブレイカー能力"
+        if (current_atk and 
+            current_atk.get("target_zone") == "shields" and 
+            src_owner.player_id == current_atk.get("attacked_player_id") and 
+            from_zone in ('shields', 'opp-shields')):
+            
+            attacker_player_id = self.get_opponent_id(current_atk["attacked_player_id"])
+            attacker_player = self.players.get(attacker_player_id) if attacker_player_id else None
+            if attacker_player:
+                attacker_card = self._find_card(attacker_player.battle_zone, current_atk.get("attacker_uuid"))
+            
+            if attacker_card:
+                break_count = self._get_break_count(attacker_card)
+                if break_count > 1:
+                    if break_count == 99:
+                        additional_count = len(src_list)
+                    else:
+                        additional_count = min(break_count - 1, len(src_list))
+                    
+                    # ブレイカー種類の判定（ログ表記用）
+                    ability_text = attacker_card.get("ability_text") or attacker_card.get("text") or ""
+                    if any(x in ability_text for x in ["ワールド・ブレイカー", "G・ブレイカー", "ドラゴン・ワールド・ブレイカー"]):
+                        breaker_type = "ワールド・ブレイカー"
+                    elif "Q・ブレイカー" in ability_text or "Q・" in ability_text:
+                        breaker_type = "Q・ブレイカー"
+                    elif any(x in ability_text for x in ["T・ブレイカー", "マスター・T・ブレイカー", "ドラゴン・T・ブレイカー"]):
+                        breaker_type = "T・ブレイカー"
+                    elif any(x in ability_text for x in ["W・ブレイカー", "Ｗ・ブレイカー", "Wダブル・ブレイカー", "マスター・W・ブレイカー", "ドラゴン・W・ブレイカー"]):
+                        breaker_type = "W・ブレイカー"
+                    elif "パワード・ブレイカー" in ability_text:
+                        breaker_type = "パワード・ブレイカー"
+                    
+                    for _ in range(additional_count):
+                        if not src_list:
+                            break
+                        add_card = src_list.pop(0)
+                        
+                        # シールド状態のクリーンアップ＆設定
+                        if to_zone == 'shields':
+                            if face_up is not None:
+                                add_card["face_up"] = face_up
+                            else:
+                                add_card["face_up"] = add_card.get("face_up", False)
+                        else:
+                            add_card.pop("face_up", None)
+                            add_card.pop("hidden", None)
+                        
+                        # 移動先に追加
+                        if to_zone == 'deck':
+                            if position == 'bottom':
+                                dst_list.insert(0, add_card)
+                            elif position == 'index' and index is not None:
+                                insert_idx = max(0, min(len(dst_list) - index + 1, len(dst_list)))
+                                dst_list.insert(insert_idx, add_card)
+                            else:
+                                dst_list.append(add_card)
+                        else:
+                            dst_list.append(add_card)
+                        
+                        broken_additional_cards.append(add_card)
+
         # ログメッセージ
         zone_names = {
             'hand': '手札',
@@ -973,7 +1074,15 @@ class GameRoom:
         if to_zone == 'shields':
             to_name = f"{'表向き' if card.get('face_up') else '裏向き'}シールド"
 
+        # 最初のシールド移動ログ
         self._add_log(f"{player.name} が {card['name']} を {from_name} から {dst_player.name} の {to_name} へ移動しました")
+        
+        # 追加ブレイクのログ
+        if broken_additional_cards and attacker_card:
+            self._add_log(f"💥 {attacker_card['name']} の {breaker_type} により追加で {len(broken_additional_cards)} 枚のシールドがブレイクされます")
+            for add_card in broken_additional_cards:
+                self._add_log(f"{player.name} が {add_card['name']} を {from_name} から {dst_player.name} の {to_name} へ移動しました")
+
         return {"success": True}
 
     def action_toggle_tap(self, player_id: str, card_uuid: str, zone: str) -> dict:
