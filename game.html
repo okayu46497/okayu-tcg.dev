@@ -2712,22 +2712,24 @@
       const cardName = card ? card.name : 'カード';
       document.getElementById('effect-declare-card-name').textContent = cardName;
 
+      const cardText = card ? (card.text || card.ability_text || '') : '';
+
+      // 効果宣言テキストエリアの初期値として効果全文をセット
       const textarea = document.getElementById('effect-declare-text');
-      textarea.value = '';
+      textarea.value = cardText;
 
       // 効果選択肢のパースとレンダリング
       const choicesContainer = document.getElementById('effect-choices-container');
       const choicesList = document.getElementById('effect-choices-list');
       choicesList.innerHTML = '';
 
-      const cardText = card ? (card.text || card.ability_text || '') : '';
       if (card && cardText) {
-        // 改行で分割し、■ または > で始まる行を抽出
+        // 改行で分割し、空行ではないすべての行を効果選択肢にする
         const lines = cardText.split(/[\r\n]+/);
         const parsedChoices = [];
         lines.forEach(line => {
           const trimmed = line.trim();
-          if (trimmed.startsWith('■') || trimmed.startsWith('>')) {
+          if (trimmed.length > 0) {
             parsedChoices.push(trimmed);
           }
         });
@@ -2749,6 +2751,7 @@
             checkbox.id = `eff-choice-${idx}`;
             checkbox.style.marginTop = '2.5px';
             checkbox.style.cursor = 'pointer';
+            checkbox.checked = true; // 初期状態ではすべてのチェックボックスを選択状態にする
 
             checkbox.addEventListener('change', () => {
               updateDeclareTextFromCheckboxes();
