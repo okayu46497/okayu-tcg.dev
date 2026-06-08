@@ -1425,6 +1425,75 @@
     .effect-mode-active .top-bar {
       border-bottom: 2px solid var(--success) !important;
     }
+
+    /* シールド複数選択時のハイライト */
+    .card.selected-shield-break {
+      outline: 3px solid #10b981 !important;
+      box-shadow: 0 0 20px #10b981 !important;
+      transform: translateY(-8px) scale(1.05) !important;
+      z-index: 50 !important;
+    }
+
+    /* S・トリガー選択吹き出し */
+    .trigger-prompt-bubble {
+      position: absolute;
+      bottom: 105%; /* カードの上部に表示されるように配置 */
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 200;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      width: 90px;
+      text-align: center;
+      pointer-events: auto; /* クリック可能にする */
+    }
+
+    .trigger-prompt-title {
+      font-size: 9px;
+      color: #fff;
+      font-weight: bold;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      white-space: nowrap;
+    }
+
+    .trigger-prompt-btns {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .btn-trigger-action {
+      font-size: 9px;
+      padding: 3px 6px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #fff;
+      font-weight: bold;
+      flex: 1;
+      text-align: center;
+      transition: background-color 0.2s;
+    }
+
+    .btn-trigger-use {
+      background-color: var(--success);
+    }
+    .btn-trigger-use:hover {
+      background-color: #059669;
+    }
+
+    .btn-trigger-skip {
+      background-color: var(--danger);
+    }
+    .btn-trigger-skip:hover {
+      background-color: #dc2626;
+    }
   </style>
 </head>
 
@@ -1450,6 +1519,10 @@
   <div class="attack-alert-banner" id="attack-alert-banner">
     <span style="font-size: 18px;">⚠️</span>
     <span id="attack-alert-text">攻撃されました！シールドか効果を使ってください。</span>
+    <div id="shield-break-controls" style="display: none; align-items: center; gap: 8px; margin-left: 16px;">
+      <button id="btn-break-to-hand" class="btn-action" onclick="submitShieldBreak('hand')" style="padding: 4px 8px; font-size: 12px; background: var(--success); border: none; border-radius: 4px; color: #fff; cursor: pointer;">手札に加える</button>
+      <button id="btn-break-to-grave" class="btn-action" onclick="submitShieldBreak('graveyard')" style="padding: 4px 8px; font-size: 12px; background: var(--danger); border: none; border-radius: 4px; color: #fff; cursor: pointer;">墓地に置く</button>
+    </div>
   </div>
 
   <!-- Game UI -->
@@ -1694,6 +1767,9 @@
     <div class="menu-item" id="menu-hand-to-hand" onclick="handleMenuHandToHand()"
       style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#10b981; transition:all 0.2s;">🃏 手札に加える
     </div>
+    <div class="menu-item" id="menu-hand-to-hand-no-trigger" onclick="handleMenuHandToHandNoTrigger()"
+      style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#059669; transition:all 0.2s;">🃏 手札に加える (トリガー不可)
+    </div>
     <div class="menu-item" id="menu-hand-shield-face-down" onclick="handleMenuHandShield(false)"
       style="display:none; padding:10px 16px; font-size:12px; cursor:pointer; color:#fbbf24; transition:all 0.2s;">🛡️ シールドに置く (裏)
     </div>
@@ -1862,6 +1938,9 @@
     // ============================================================
     let gameState = null;
     let ws = null;
+
+    // Shield break selection state
+    let selectedShieldUuids = [];
 
     // Drag state
     let dragCardUuid = null;
@@ -2069,6 +2148,11 @@
         el.classList.remove('attack-target-pulsing');
       });
       banner.style.display = 'none';
+      if (!gameState.current_attack) {
+        selectedShieldUuids = [];
+        const controls = document.getElementById('shield-break-controls');
+        if (controls) controls.style.display = 'none';
+      }
 
       if (gameState.current_attack) {
         const attack = gameState.current_attack;
@@ -2088,10 +2172,44 @@
           }
         }
 
-        // 2. 攻撃されたプレイヤー側でバナーメッセージを表示
-        if (attack.attacked_player_id === PLAYER_ID) {
-          alertText.textContent = attack.message || "攻撃されました！シールドか効果を使ってください。";
+        // 2. 警告バナーの制御 (攻撃側と防御側で出し分け)
+        const controls = document.getElementById('shield-break-controls');
+
+        if (gameState.is_your_turn) {
+          // 自分が攻撃側の場合: 相手のシールドを選択させる
           banner.style.display = 'flex';
+          
+          const breakCount = attack.break_count || 1;
+          const opponentShieldCount = opp && opp.shields ? opp.shields.length : 0;
+          const targetCount = Math.min(breakCount, opponentShieldCount);
+
+          if (targetCount > 0) {
+            alertText.textContent = `💥 相手のシールドを ${targetCount} 枚選択してください (現在選択: ${selectedShieldUuids.length} 枚)`;
+            if (controls) {
+              if (selectedShieldUuids.length === targetCount) {
+                controls.style.display = 'flex';
+              } else {
+                controls.style.display = 'none';
+              }
+            }
+          } else {
+            alertText.textContent = attack.message || "ダイレクトアタック！";
+            if (controls) controls.style.display = 'none';
+          }
+        } else if (attack.attacked_player_id === PLAYER_ID) {
+          // 自分が防御側の場合: 相手がブレイク中である旨を表示し、ボタンは出さない
+          banner.style.display = 'flex';
+          
+          const breakCount = attack.break_count || 1;
+          const shieldCount = you.shields ? you.shields.length : 0;
+          const targetCount = Math.min(breakCount, shieldCount);
+
+          if (targetCount > 0) {
+            alertText.textContent = `🛡️ 相手がシールドをブレイク中... (${targetCount} 枚ブレイクされます)`;
+          } else {
+            alertText.textContent = attack.message || "ダイレクトアタックされました！";
+          }
+          if (controls) controls.style.display = 'none';
         }
       }
     }
@@ -2187,9 +2305,13 @@
     // カードHTML生成 (draggable)
     // ============================================================
     function createCardHTML(card, zone, isTapped = false, isSick = false) {
+      // シールド攻撃が来ている間は、攻撃側による相手シールドのドラッグを禁止 (選択操作を強制)
+      const isAttacking = gameState && gameState.current_attack && gameState.is_your_turn;
+      const shieldDragDisabled = isAttacking && (zone === 'opp-shields');
+
       // ドラッグ可能判定 (手札、自分のバトルゾーン、墓地、山札閲覧、相手手札、シールド)
       // 効果解決モード (isEffectMode) が ON の場合は、すべてのゾーン (相手の場、マナ、自分のマナ等) でドラッグ可能とする
-      const isDraggable = (isEffectMode || zone === 'hand' || zone === 'my-battle' || zone === 'graveyard' || zone === 'deck-view' || zone === 'opp-hand' || zone === 'shields' || zone === 'mana' || zone === 'opp-battle' || zone === 'opp-mana' || zone === 'opp-graveyard' || zone === 'opp-shields') && gameState;
+      const isDraggable = !shieldDragDisabled && (isEffectMode || zone === 'hand' || zone === 'my-battle' || zone === 'graveyard' || zone === 'deck-view' || zone === 'opp-hand' || zone === 'shields' || zone === 'mana' || zone === 'opp-battle' || zone === 'opp-mana' || zone === 'opp-graveyard' || zone === 'opp-shields') && gameState;
 
       const draggableAttr = isDraggable ? 'draggable="true"' : '';
       const sourceZone = zone === 'deck-view' ? 'deck' : zone;
@@ -2207,11 +2329,26 @@
       if (zone === 'mana') classes += ' mana-card';
       if (isTapped) classes += ' tapped';
       // if (isSick) classes += ' summoning-sick';
+      if (card.trigger_prompt) classes += ' has-trigger-prompt';
+      if (selectedShieldUuids.includes(card.uuid)) classes += ' selected-shield-break';
 
       let sizeStyle = "";
       if (zone === 'shields' || zone === 'opp-shields') {
         classes += ' shield-card';
         sizeStyle = 'width: 60px; height: 84px; font-size: 8px; flex-shrink: 0;';
+      }
+
+      let triggerPromptHTML = '';
+      if (card.trigger_prompt) {
+        triggerPromptHTML = `
+          <div class="trigger-prompt-bubble" onclick="event.stopPropagation();">
+            <div class="trigger-prompt-title">S・トリガー</div>
+            <div class="trigger-prompt-btns">
+              <button class="btn-trigger-action btn-trigger-use" onclick="resolveTrigger(event, '${card.uuid}', true)">使う</button>
+              <button class="btn-trigger-action btn-trigger-skip" onclick="resolveTrigger(event, '${card.uuid}', false)">拒否</button>
+            </div>
+          </div>
+        `;
       }
 
       // 1. 裏向き・非表示カードの処理
@@ -2233,6 +2370,7 @@
             <div style="background: rgba(0,0,0,0.35); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit;">
               ${hiddenContent}
             </div>
+            ${triggerPromptHTML}
           </div>
         `;
       }
@@ -2269,6 +2407,7 @@
               <span class="card-power">${powerStr}</span>
             </div>
           </div>
+          ${triggerPromptHTML}
         </div>
       `;
     }
@@ -2454,8 +2593,47 @@
     // コンテキストメニュー & 手動インタラクション
     // ==========================================
 
+    function resolveTrigger(e, uuid, use) {
+      if (e) e.stopPropagation();
+      sendAction({
+        action: 'resolve_trigger',
+        card_uuid: uuid,
+        use: use
+      });
+    }
+
+    function submitShieldBreak(toZone) {
+      if (selectedShieldUuids.length === 0) return;
+      sendAction({
+        action: 'break_shields',
+        card_uuids: selectedShieldUuids,
+        to_zone: toZone
+      });
+      selectedShieldUuids = [];
+      renderGame();
+    }
+
     function onCardClick(e, uuid, zone) {
       e.stopPropagation();
+
+      // シールド攻撃中の攻撃側による相手シールド選択トグル
+      if (gameState && gameState.current_attack && gameState.is_your_turn && zone === 'opp-shields') {
+        const breakCount = gameState.current_attack.break_count || 1;
+        const opponentShieldCount = gameState.opponent && gameState.opponent.shields ? gameState.opponent.shields.length : 0;
+        const targetCount = Math.min(breakCount, opponentShieldCount);
+
+        const index = selectedShieldUuids.indexOf(uuid);
+        if (index > -1) {
+          selectedShieldUuids.splice(index, 1);
+        } else {
+          if (selectedShieldUuids.length >= targetCount) {
+            selectedShieldUuids.shift();
+          }
+          selectedShieldUuids.push(uuid);
+        }
+        renderGame();
+        return;
+      }
 
       // --- 攻撃対象選択モード時の処理 ---
       if (attackSourceUuid) {
@@ -2548,6 +2726,10 @@
       const menuToHand = document.getElementById('menu-hand-to-hand');
       if (menuToHand) {
         menuToHand.style.display = (zone !== 'hand' && showMoveMenus) ? 'block' : 'none';
+      }
+      const menuToHandNoTrigger = document.getElementById('menu-hand-to-hand-no-trigger');
+      if (menuToHandNoTrigger) {
+        menuToHandNoTrigger.style.display = (zone !== 'hand' && showMoveMenus) ? 'block' : 'none';
       }
       
       document.getElementById('menu-hand-shield-face-down').style.display = showMoveMenus ? 'block' : 'none';
@@ -2776,6 +2958,18 @@
         card_uuid: clickedCardUuid,
         from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
         to_zone: 'hand'
+      });
+      closeCardInteractionMenu();
+    }
+
+    function handleMenuHandToHandNoTrigger() {
+      if (!clickedCardUuid || !clickedCardZone) return;
+      sendAction({
+        action: 'move_card',
+        card_uuid: clickedCardUuid,
+        from_zone: clickedCardZone === 'deck-view' ? 'deck' : clickedCardZone,
+        to_zone: 'hand',
+        allow_trigger: false
       });
       closeCardInteractionMenu();
     }

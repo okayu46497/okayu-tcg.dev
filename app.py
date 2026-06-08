@@ -765,6 +765,158 @@ class GameRoom:
 
         return 1
 
+    def _has_shield_trigger(self, card: dict) -> bool:
+        """カードがシールドトリガー能力（または関連能力）を持つか判定する"""
+        ability_text = card.get("ability_text") or card.get("text") or ""
+        keywords = ["シールド・トリガー", "S・トリガー", "Ｓ・トリガー", "S・バック", "サバキZ", "裁きの紋章"]
+        return any(kw in ability_text for kw in keywords)
+
+    def _automate_card_effect(self, player_id: str, card: dict) -> list[str]:
+        """出た時などの単純なカード効果を自動で解決する"""
+        player = self.players[player_id]
+        opponent_id = self.get_opponent_id(player_id)
+        opponent = self.players[opponent_id] if opponent_id else None
+        
+        ability_text = card.get("ability_text") or card.get("text") or ""
+        if not ability_text:
+            return []
+            
+        logs = []
+        
+        # 1. ドロー効果 (カードをN枚引く)
+        import re
+        draw_match = re.search(r'(?:カードを|山札の上から)?([１２３４５1-5])枚(?:まで)?引く', ability_text)
+        if draw_match:
+            num_map = {'１': 1, '２': 2, '３': 3, '４': 4, '５': 5, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5}
+            num_str = draw_match.group(1)
+            num_draw = num_map.get(num_str, 1)
+            
+            drawn_cards = []
+            for _ in range(num_draw):
+                if player.deck:
+                    c = player.deck.pop()
+                    player.hand.append(c)
+                    drawn_cards.append(c["name"])
+            if drawn_cards:
+                logs.append(f"🔮 {card['name']} の効果により、{player.name} はカードを {len(drawn_cards)} 枚引きました")
+                
+        # 2. マナ加速効果 (山札の上からN枚目をマナゾーンに置く)
+        mana_match = re.search(r'山札の上から([１２1-2])枚(?:目)?を(?:、)?マナゾーンに置く', ability_text)
+        if mana_match:
+            num_map = {'１': 1, '２': 2, '1': 1, '2': 2}
+            num_mana = num_map.get(mana_match.group(1), 1)
+            
+            boosted = []
+            for _ in range(num_mana):
+                if player.deck:
+                    c = player.deck.pop()
+                    player.mana_zone.append(c)
+                    boosted.append(c["name"])
+            if boosted:
+                logs.append(f"🔮 {card['name']} の効果により、{player.name} は山札の上から {len(boosted)} 枚をマナゾーンに置きました")
+                
+        # 3. シールド化効果 (山札の上からN枚目をシールドゾーンに置く / シールド化する)
+        shield_match = re.search(r'山札の上から([１1])枚(?:目)?を(?:、)?(?:新しいシールドとして)?シールドゾーンに置く|シールド化する', ability_text)
+        if shield_match:
+            if player.deck:
+                c = player.deck.pop()
+                c["face_up"] = False
+                player.shields.append(c)
+                logs.append(f"🔮 {card['name']} の効果により、{player.name} は山札の上から 1 枚をシールド化しました")
+                
+        # 4. ハンデス効果 (相手は手札を1枚捨てる)
+        discard_match = re.search(r'相手は(?:自身|自分)の手札を([１1])枚(?:選んで)?捨てる|相手の手札を1枚(?:見ないで選び、)?捨てさせる', ability_text)
+        if discard_match and opponent and opponent.hand:
+            import random
+            discarded_card = opponent.hand.pop(random.randint(0, len(opponent.hand) - 1))
+            opponent.graveyard.append(discarded_card)
+            logs.append(f"🔮 {card['name']} の効果により、{opponent.name} は手札から {discarded_card['name']} を墓地に捨てました")
+            
+        for log in logs:
+            self._add_log(log)
+            
+        return logs
+
+    def action_break_shields(self, player_id: str, card_uuids: list[str], to_zone: str) -> dict:
+        """指定されたシールドカードを複数選択してブレイク（移動）する"""
+        current_atk = self.current_attack
+        self.current_attack = None  # 攻撃解決したのでクリア
+        
+        if not current_atk:
+            return {"error": "無効なシールドブレイク要求です（攻撃中のクリーチャーがいません）"}
+            
+        defender_id = current_atk.get("attacked_player_id")
+        if not defender_id:
+            return {"error": "無効なシールドブレイク要求です（防御側プレイヤーが特定できません）"}
+            
+        defender = self.players[defender_id]
+        
+        if to_zone == 'hand':
+            dst_list = defender.hand
+        elif to_zone == 'graveyard':
+            dst_list = defender.graveyard
+        else:
+            return {"error": f"不明な移動先です: {to_zone}"}
+            
+        # 攻撃側と防御側の両方のバトルゾーンから攻撃クリーチャーを検索する
+        attacker_card = None
+        for p in self.players.values():
+            attacker_card = self._find_card(p.battle_zone, current_atk.get("attacker_uuid"))
+            if attacker_card:
+                break
+            
+        broken_cards = []
+        for uuid in card_uuids:
+            card = self._find_and_remove(defender.shields, uuid)
+            if card:
+                card.pop("face_up", None)
+                card.pop("hidden", None)
+                
+                # S-トリガー判定
+                if to_zone == 'hand' and self._has_shield_trigger(card):
+                    card["trigger_prompt"] = True
+                    
+                dst_list.append(card)
+                broken_cards.append(card)
+                
+        if not broken_cards:
+            return {"error": "対象のシールドが見つかりませんでした"}
+            
+        attacker_name = attacker_card["name"] if attacker_card else "クリーチャー"
+        to_name = "手札" if to_zone == 'hand' else "墓地"
+        card_names = ", ".join([c["name"] for c in broken_cards])
+        self._add_log(f"💥 {attacker_name} の攻撃により、{defender.name} のシールド ({card_names}) がブレイクされ、{to_name} に送られました")
+        
+        return {"success": True}
+
+    def action_resolve_trigger(self, player_id: str, card_uuid: str, use: bool) -> dict:
+        """シールドトリガーの使用・見送りを解決する"""
+        player = self.players[player_id]
+        card = self._find_card(player.hand, card_uuid)
+        if not card:
+            return {"error": "カードが手札に見つかりません"}
+            
+        card.pop("trigger_prompt", None)
+        
+        if use:
+            self._add_log(f"⚡ {player.name} が {card['name']} の S・トリガー/効果 を宣言しました！")
+            
+            if card.get("card_type") == "creature":
+                self._find_and_remove(player.hand, card_uuid)
+                player.battle_zone.append(card)
+                self._add_log(f"⚔️ {card['name']} がバトルゾーンに出ました")
+                self._automate_card_effect(player_id, card)
+                
+            elif card.get("card_type") == "spell":
+                self._find_and_remove(player.hand, card_uuid)
+                player.graveyard.append(card)
+                self._add_log(f"📜 {card['name']} を唱えて墓地に置きました")
+                self._automate_card_effect(player_id, card)
+        else:
+            self._add_log(f"{player.name} は {card['name']} の S・トリガー/効果 の使用を見送りました")
+            
+        return {"success": True}
+
     def start_game(self):
         """ゲーム開始"""
         self.phase = "playing"
@@ -832,7 +984,7 @@ class GameRoom:
     # ゲームアクション
     # ----------------------------------------------------------
 
-    def action_move_card(self, player_id: str, card_uuid: str, from_zone: str, to_zone: str, position: str = 'top', index: Optional[int] = None, face_up: Optional[bool] = None) -> dict:
+    def action_move_card(self, player_id: str, card_uuid: str, from_zone: str, to_zone: str, position: str = 'top', index: Optional[int] = None, face_up: Optional[bool] = None, allow_trigger: bool = True) -> dict:
         """任意のゾーンから任意のゾーンへカードを直接移動する"""
         current_atk = self.current_attack
         self.current_attack = None  # アクションが起きたら攻撃中表示をクリア
@@ -971,6 +1123,10 @@ class GameRoom:
         else:
             card.pop("face_up", None)
             card.pop("hidden", None)  # シールドから他ゾーンへの移動時は裏向き状態を確実にクリーンアップして表向きにする
+            
+            # S・トリガーの処理
+            if to_zone == 'hand' and from_zone in ('shields', 'opp-shields') and allow_trigger and self._has_shield_trigger(card):
+                card["trigger_prompt"] = True
 
         # 4. 移動先にカードを追加
         pos_text = ""
@@ -989,70 +1145,6 @@ class GameRoom:
                 pos_text = "山札の一番上"
         else:
             dst_list.append(card)
-
-        # 複数枚シールドブレイク（ブレイカー能力）の自動処理
-        broken_additional_cards = []
-        attacker_card = None
-        breaker_type = "ブレイカー能力"
-        if (current_atk and 
-            current_atk.get("target_zone") == "shields" and 
-            src_owner.player_id == current_atk.get("attacked_player_id") and 
-            from_zone in ('shields', 'opp-shields')):
-            
-            attacker_player_id = self.get_opponent_id(current_atk["attacked_player_id"])
-            attacker_player = self.players.get(attacker_player_id) if attacker_player_id else None
-            if attacker_player:
-                attacker_card = self._find_card(attacker_player.battle_zone, current_atk.get("attacker_uuid"))
-            
-            if attacker_card:
-                break_count = self._get_break_count(attacker_card)
-                if break_count > 1:
-                    if break_count == 99:
-                        additional_count = len(src_list)
-                    else:
-                        additional_count = min(break_count - 1, len(src_list))
-                    
-                    # ブレイカー種類の判定（ログ表記用）
-                    ability_text = attacker_card.get("ability_text") or attacker_card.get("text") or ""
-                    if any(x in ability_text for x in ["ワールド・ブレイカー", "G・ブレイカー", "ドラゴン・ワールド・ブレイカー"]):
-                        breaker_type = "ワールド・ブレイカー"
-                    elif "Q・ブレイカー" in ability_text or "Q・" in ability_text:
-                        breaker_type = "Q・ブレイカー"
-                    elif any(x in ability_text for x in ["T・ブレイカー", "マスター・T・ブレイカー", "ドラゴン・T・ブレイカー"]):
-                        breaker_type = "T・ブレイカー"
-                    elif any(x in ability_text for x in ["W・ブレイカー", "Ｗ・ブレイカー", "Wダブル・ブレイカー", "マスター・W・ブレイカー", "ドラゴン・W・ブレイカー"]):
-                        breaker_type = "W・ブレイカー"
-                    elif "パワード・ブレイカー" in ability_text:
-                        breaker_type = "パワード・ブレイカー"
-                    
-                    for _ in range(additional_count):
-                        if not src_list:
-                            break
-                        add_card = src_list.pop(0)
-                        
-                        # シールド状態のクリーンアップ＆設定
-                        if to_zone == 'shields':
-                            if face_up is not None:
-                                add_card["face_up"] = face_up
-                            else:
-                                add_card["face_up"] = add_card.get("face_up", False)
-                        else:
-                            add_card.pop("face_up", None)
-                            add_card.pop("hidden", None)
-                        
-                        # 移動先に追加
-                        if to_zone == 'deck':
-                            if position == 'bottom':
-                                dst_list.insert(0, add_card)
-                            elif position == 'index' and index is not None:
-                                insert_idx = max(0, min(len(dst_list) - index + 1, len(dst_list)))
-                                dst_list.insert(insert_idx, add_card)
-                            else:
-                                dst_list.append(add_card)
-                        else:
-                            dst_list.append(add_card)
-                        
-                        broken_additional_cards.append(add_card)
 
         # ログメッセージ
         zone_names = {
@@ -1074,14 +1166,8 @@ class GameRoom:
         if to_zone == 'shields':
             to_name = f"{'表向き' if card.get('face_up') else '裏向き'}シールド"
 
-        # 最初のシールド移動ログ
+        # シールド移動ログ
         self._add_log(f"{player.name} が {card['name']} を {from_name} から {dst_player.name} の {to_name} へ移動しました")
-        
-        # 追加ブレイクのログ
-        if broken_additional_cards and attacker_card:
-            self._add_log(f"💥 {attacker_card['name']} の {breaker_type} により追加で {len(broken_additional_cards)} 枚のシールドがブレイクされます")
-            for add_card in broken_additional_cards:
-                self._add_log(f"{player.name} が {add_card['name']} を {from_name} から {dst_player.name} の {to_name} へ移動しました")
 
         return {"success": True}
 
@@ -1185,6 +1271,10 @@ class GameRoom:
         # card["summoning_sickness"] = True  # 召喚酔い
         player.battle_zone.append(card)
         self._add_log(f"{player.name} が {card['name']} を登場させました（コスト{card['cost']}）")
+        
+        # 自動効果解決
+        self._automate_card_effect(player_id, card)
+        
         return {"success": True}
 
     def action_cast_spell(
@@ -1221,6 +1311,10 @@ class GameRoom:
         # 呪文は使用後墓地へ
         player.graveyard.append(card)
         self._add_log(f"{player.name} が {card['name']} を唱えた。{effect_msg}")
+        
+        # 自動効果解決
+        self._automate_card_effect(player_id, card)
+        
         return {"success": True}
 
     def action_attack_creature(
@@ -1332,12 +1426,14 @@ class GameRoom:
             target_shield_uuid = target_shield["uuid"]
             self._add_log(f"💥 {attacker['name']} が {opponent.name} のシールドへ攻撃を宣言！")
 
+            break_count = self._get_break_count(attacker)
             self.current_attack = {
                 "attacker_uuid": attacker_uuid,
                 "target_uuid": target_shield_uuid,
                 "target_zone": "shields",
                 "attacked_player_id": opponent_id,
-                "message": "シールドが攻撃されました！シールドか効果を使ってください。"
+                "message": "シールドが攻撃されました！シールドか効果を使ってください。",
+                "break_count": break_count
             }
         else:
             # シールドがない場合：ダイレクトアタック宣言
@@ -2162,7 +2258,20 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                     data.get("to_zone"),
                     position=data.get("position", "top"),
                     index=data.get("index"),
-                    face_up=data.get("face_up")
+                    face_up=data.get("face_up"),
+                    allow_trigger=data.get("allow_trigger", True)
+                )
+            elif action == "break_shields":
+                result = room.action_break_shields(
+                    player_id,
+                    data.get("card_uuids", []),
+                    data.get("to_zone")
+                )
+            elif action == "resolve_trigger":
+                result = room.action_resolve_trigger(
+                    player_id,
+                    data.get("card_uuid"),
+                    data.get("use")
                 )
             elif action == "toggle_tap":
                 result = room.action_toggle_tap(
