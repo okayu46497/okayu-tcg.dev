@@ -837,6 +837,78 @@ class GameRoom:
             
         return logs
 
+    def action_stack_card(self, player_id: str, card_uuid: str, target_uuid: str, stack_type: str) -> dict:
+        """指定されたカードを、バトルゾーンにある別のカード（target）の上に重ねる（進化）か、下に敷く"""
+        current_player = self.players[player_id]
+        
+        # 1. 重ね先のターゲットカードをバトルゾーンから探す
+        target_card = None
+        target_zone = None
+        target_owner = None
+        
+        for p in self.players.values():
+            target_card = self._find_card(p.battle_zone, target_uuid)
+            if target_card:
+                target_zone = p.battle_zone
+                target_owner = p
+                break
+                
+        if not target_card:
+            return {"error": "重ね先のカードがバトルゾーンに見つかりません"}
+            
+        # 2. 重ねるカードをすべてのゾーンから探し出して取り出す
+        card = None
+        from_zone_name = ""
+        
+        for p in self.players.values():
+            for z_name, zone_list in [('hand', p.hand), ('battle', p.battle_zone), ('mana', p.mana_zone), ('graveyard', p.graveyard), ('deck', p.deck), ('shields', p.shields)]:
+                card = self._find_and_remove(zone_list, card_uuid)
+                if card:
+                    from_zone_name = z_name
+                    # 各種クリーンアップ
+                    if z_name == 'mana' and card_uuid in p.tapped_mana:
+                        p.tapped_mana.remove(card_uuid)
+                    if z_name == 'battle' and card_uuid in p.tapped_creatures:
+                        p.tapped_creatures.remove(card_uuid)
+                    break
+            if card:
+                break
+                
+        if not card:
+            return {"error": "重ねるカードが見つかりません"}
+            
+        # 表裏・非表示状態のクリーンアップ
+        card.pop("face_up", None)
+        card.pop("hidden", None)
+        
+        # 3. 重ね処理
+        if stack_type == 'top':
+            # 上に重ねる（進化）
+            # 新しい一番上のカードに、古い一番上のカードとその下層カードをマージする
+            old_under = target_card.pop("under_cards", [])
+            card["under_cards"] = [target_card] + old_under
+            
+            # バトルゾーンにおける target_card のインデックスを取得し、そこに card を挿入
+            try:
+                idx = target_zone.index(target_card)
+                target_zone[idx] = card
+            except ValueError:
+                target_zone.append(card)
+                
+            self._add_log(f"📁 {current_player.name} が {target_card['name']} の上に {card['name']} を重ねました（進化）")
+            
+        elif stack_type == 'bottom':
+            # 下に敷く
+            target_card["under_cards"] = target_card.get("under_cards", []) + [card]
+            self._add_log(f"📁 {current_player.name} が {target_card['name']} の下に {card['name']} を敷きました")
+            
+        else:
+            # エラーの場合は元に戻す
+            current_player.hand.append(card)
+            return {"error": f"無効な重ね合わせタイプです: {stack_type}"}
+            
+        return {"success": True}
+
     def action_break_shields(self, player_id: str, card_uuids: list[str], to_zone: str) -> dict:
         """指定されたシールドカードを複数選択してブレイク（移動）する"""
         current_atk = self.current_attack
@@ -1054,6 +1126,14 @@ class GameRoom:
         card = self._find_and_remove(src_list, card_uuid)
         if not card:
             return {"error": "移動元のゾーンに指定されたカードが見つかりません"}
+
+        # バトルゾーンからカードが離れる場合、下に重ねられていたカードがあればすべて持ち主の墓地へ送る
+        if from_zone in ('battle', 'opp-battle') and card.get("under_cards"):
+            under_list = card.pop("under_cards", [])
+            for uc in under_list:
+                src_owner.graveyard.append(uc)
+            under_names = ", ".join([c["name"] for c in under_list])
+            self._add_log(f"📁 {card['name']} がバトルゾーンを離れたため、下に敷かれていたカード ({under_names}) は墓地へ送られました")
 
         # 2. 移動先リストの決定（カードの本来の持ち主のゾーンに送るルール）
         dst_player = src_owner
@@ -1475,6 +1555,10 @@ class GameRoom:
         for card in zone:
             if card.get("uuid") == card_uuid:
                 return card
+            under = card.get("under_cards", [])
+            found = GameRoom._find_card(under, card_uuid)
+            if found:
+                return found
         return None
 
     @staticmethod
@@ -1482,6 +1566,12 @@ class GameRoom:
         for i, card in enumerate(zone):
             if card.get("uuid") == card_uuid:
                 return zone.pop(i)
+            under = card.get("under_cards", [])
+            found = GameRoom._find_and_remove(under, card_uuid)
+            if found:
+                if not under:
+                    card.pop("under_cards", None)
+                return found
         return None
 
     @staticmethod
@@ -2266,6 +2356,13 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                     player_id,
                     data.get("card_uuids", []),
                     data.get("to_zone")
+                )
+            elif action == "stack_card":
+                result = room.action_stack_card(
+                    player_id,
+                    data.get("card_uuid"),
+                    data.get("target_uuid"),
+                    data.get("stack_type")
                 )
             elif action == "resolve_trigger":
                 result = room.action_resolve_trigger(
