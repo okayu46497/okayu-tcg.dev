@@ -1070,31 +1070,50 @@
     /* Hand Card Selection / Sliding Styles         */
     /* ============================================ */
     #my-hand-container {
-      height: 56px;
-      min-height: 56px !important;
-      max-height: 56px !important;
-      overflow: visible !important;
+      height: 120px;
+      min-height: 120px !important;
+      max-height: 120px !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
       padding: 2px 16px !important;
       position: relative;
       z-index: 15;
     }
 
+    /* Custom scrollbar for hand container */
+    #my-hand-container::-webkit-scrollbar {
+      height: 4px;
+    }
+    #my-hand-container::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    #my-hand-container::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+    #my-hand-container::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
     #my-hand {
-      height: 56px;
-      min-height: 56px !important;
-      max-height: 56px !important;
-      overflow: visible !important;
+      height: 120px;
+      min-height: 120px !important;
+      max-height: 120px !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
       display: flex;
       justify-content: center;
       align-items: flex-end;
       gap: 6px;
       position: relative;
+      width: max-content;
+      min-width: 100%;
     }
 
     #my-hand .card {
       position: relative;
-      /* 待機状態: カードの3分の2の面積が露出するように、沈み込み量を30pxにする */
-      transform: translateY(30px);
+      /* 待機状態: カードの3分の2の面積が露出するように、沈み込み量を20pxにする */
+      transform: translateY(20px);
       transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, border-color 0.2s;
       z-index: 10;
       cursor: pointer;
@@ -1102,20 +1121,20 @@
 
     #my-hand .card:hover {
       /* ホバー時にさらに突き出す */
-      transform: translateY(18px);
+      transform: translateY(10px);
       z-index: 20;
     }
 
     #my-hand .card.selected-hand-card {
       /* 選択状態: 上にスライドして全身表示 */
-      transform: translateY(-40px) !important;
+      transform: translateY(-20px) !important;
       z-index: 50 !important;
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 15px var(--accent-glow) !important;
       border-color: var(--accent) !important;
     }
 
     #my-hand .card.selected-hand-card:hover {
-      transform: translateY(-45px) !important;
+      transform: translateY(-25px) !important;
     }
 
     /* ============================================ */
@@ -1338,34 +1357,42 @@
       }
 
       #my-hand-container {
-        height: 38px !important;
-        min-height: 38px !important;
-        max-height: 38px !important;
+        height: 75px !important;
+        min-height: 75px !important;
+        max-height: 75px !important;
         padding: 1px 8px !important;
-        overflow: visible !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
       }
 
       #my-hand {
-        height: 38px !important;
-        min-height: 38px !important;
-        max-height: 38px !important;
-        overflow: visible !important;
+        height: 75px !important;
+        min-height: 75px !important;
+        max-height: 75px !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 6px;
+        width: max-content;
+        min-width: 100%;
       }
 
       #my-hand .card {
-        transform: translateY(0px) !important;
+        transform: translateY(10px) !important;
       }
 
       #my-hand .card:hover {
-        transform: translateY(-24px) !important;
+        transform: translateY(5px) !important;
       }
 
       #my-hand .card.selected-hand-card {
-        transform: translateY(-36px) !important;
+        transform: translateY(-3px) !important;
       }
 
       #my-hand .card.selected-hand-card:hover {
-        transform: translateY(-35px) !important;
+        transform: translateY(-3px) !important;
       }
 
       .action-bar {
@@ -1547,8 +1574,9 @@
     <span style="font-size: 18px;">⚠️</span>
     <span id="attack-alert-text">攻撃されました！シールドか効果を使ってください。</span>
     <div id="shield-break-controls" style="display: none; align-items: center; gap: 8px; margin-left: 16px;">
-      <button id="btn-break-to-hand" class="btn-action" onclick="submitShieldBreak('hand')" style="padding: 4px 8px; font-size: 12px; background: var(--success); border: none; border-radius: 4px; color: #fff; cursor: pointer;">手札に加える</button>
-      <button id="btn-break-to-grave" class="btn-action" onclick="submitShieldBreak('graveyard')" style="padding: 4px 8px; font-size: 12px; background: var(--danger); border: none; border-radius: 4px; color: #fff; cursor: pointer;">墓地に置く</button>
+      <button id="btn-break-confirm" class="btn-action" onclick="confirmShieldBreak()" style="padding: 4px 8px; font-size: 12px; background: var(--accent); border: none; border-radius: 4px; color: #fff; cursor: pointer; display: none;">ブレイク決定</button>
+      <button id="btn-break-to-hand" class="btn-action" onclick="submitShieldBreak('hand')" style="padding: 4px 8px; font-size: 12px; background: var(--success); border: none; border-radius: 4px; color: #fff; cursor: pointer; display: none;">手札に加える</button>
+      <button id="btn-break-to-grave" class="btn-action" onclick="submitShieldBreak('graveyard')" style="padding: 4px 8px; font-size: 12px; background: var(--danger); border: none; border-radius: 4px; color: #fff; cursor: pointer; display: none;">墓地に置く</button>
     </div>
   </div>
 
@@ -1724,7 +1752,7 @@
       <div class="zone drop-zone" id="my-hand-container" data-drop-action="to_hand"
         style="background: rgba(0,0,0,0.15); border-top: 1px solid var(--border);">
         <div class="zone-label">手札 <span class="count" id="hand-label">0</span></div>
-        <div class="card-row" id="my-hand" style="justify-content: center; min-height: 56px; gap: 6px;"></div>
+        <div class="card-row" id="my-hand"></div>
       </div>
     </div>
 
@@ -2247,6 +2275,16 @@
 
         // 2. 警告バナーの制御 (攻撃側と防御側で出し分け)
         const controls = document.getElementById('shield-break-controls');
+        const btnConfirm = document.getElementById('btn-break-confirm');
+        const btnToHand = document.getElementById('btn-break-to-hand');
+        const btnToGrave = document.getElementById('btn-break-to-grave');
+
+        if (controls) {
+          controls.style.display = 'none';
+          if (btnConfirm) btnConfirm.style.display = 'none';
+          if (btnToHand) btnToHand.style.display = 'none';
+          if (btnToGrave) btnToGrave.style.display = 'none';
+        }
 
         if (gameState.is_your_turn) {
           // 自分が攻撃側の場合: 相手のシールドを選択させる
@@ -2257,20 +2295,25 @@
           const targetCount = Math.min(breakCount, opponentShieldCount);
 
           if (targetCount > 0) {
-            alertText.textContent = `💥 相手のシールドを ${targetCount} 枚選択してください (現在選択: ${selectedShieldUuids.length} 枚)`;
-            if (controls) {
-              if (selectedShieldUuids.length === targetCount) {
-                controls.style.display = 'flex';
-              } else {
-                controls.style.display = 'none';
+            const hasPending = attack.pending_break_uuids && attack.pending_break_uuids.length > 0;
+            if (!hasPending) {
+              alertText.textContent = `💥 相手のシールドを ${targetCount} 枚選択してください (現在選択: ${selectedShieldUuids.length} 枚)`;
+              if (controls) {
+                if (selectedShieldUuids.length === targetCount) {
+                  controls.style.display = 'flex';
+                  if (btnConfirm) btnConfirm.style.display = 'inline-block';
+                }
               }
+            } else {
+              alertText.textContent = `💥 シールドをブレイク中：相手の選択待ちです...`;
+              if (controls) controls.style.display = 'none';
             }
           } else {
             alertText.textContent = attack.message || "ダイレクトアタック！";
             if (controls) controls.style.display = 'none';
           }
         } else if (attack.attacked_player_id === PLAYER_ID) {
-          // 自分が防御側の場合: 相手がブレイク中である旨を表示し、ボタンは出さない
+          // 自分が防御側の場合
           banner.style.display = 'flex';
           
           const breakCount = attack.break_count || 1;
@@ -2278,11 +2321,20 @@
           const targetCount = Math.min(breakCount, shieldCount);
 
           if (targetCount > 0) {
-            alertText.textContent = `🛡️ 相手がシールドをブレイク中... (${targetCount} 枚ブレイクされます)`;
+            const hasPending = attack.pending_break_uuids && attack.pending_break_uuids.length > 0;
+            if (!hasPending) {
+              alertText.textContent = `🛡️ 相手がシールドを選択中... (${targetCount} 枚ブレイクされます)`;
+            } else {
+              alertText.textContent = `💥 シールドがブレイクされました！移動先を選択してください。`;
+              if (controls) {
+                controls.style.display = 'flex';
+                if (btnToHand) btnToHand.style.display = 'inline-block';
+                if (btnToGrave) btnToGrave.style.display = 'inline-block';
+              }
+            }
           } else {
             alertText.textContent = attack.message || "ダイレクトアタックされました！";
           }
-          if (controls) controls.style.display = 'none';
         }
       }
     }
@@ -2405,7 +2457,10 @@
       if (isTapped) classes += ' tapped';
       // if (isSick) classes += ' summoning-sick';
       if (card.trigger_prompt) classes += ' has-trigger-prompt';
-      if (selectedShieldUuids.includes(card.uuid)) classes += ' selected-shield-break';
+      const isPendingBreak = gameState && gameState.current_attack && 
+                             gameState.current_attack.pending_break_uuids && 
+                             gameState.current_attack.pending_break_uuids.includes(card.uuid);
+      if (selectedShieldUuids.includes(card.uuid) || isPendingBreak) classes += ' selected-shield-break';
       if (underCount > 0 && (zone === 'my-battle' || zone === 'opp-battle')) classes += ' has-under-cards';
 
       let sizeStyle = "";
@@ -2684,14 +2739,21 @@
       });
     }
 
-    function submitShieldBreak(toZone) {
+    function confirmShieldBreak() {
       if (selectedShieldUuids.length === 0) return;
       sendAction({
-        action: 'break_shields',
-        card_uuids: selectedShieldUuids,
-        to_zone: toZone
+        action: 'confirm_shield_break',
+        card_uuids: selectedShieldUuids
       });
       selectedShieldUuids = [];
+      renderGame();
+    }
+
+    function submitShieldBreak(toZone) {
+      sendAction({
+        action: 'break_shields',
+        to_zone: toZone
+      });
       renderGame();
     }
 
@@ -2700,6 +2762,9 @@
 
       // シールド攻撃中の攻撃側による相手シールド選択トグル
       if (gameState && gameState.current_attack && gameState.is_your_turn && zone === 'opp-shields') {
+        const hasPending = gameState.current_attack.pending_break_uuids && gameState.current_attack.pending_break_uuids.length > 0;
+        if (hasPending) return;
+
         const breakCount = gameState.current_attack.break_count || 1;
         const opponentShieldCount = gameState.opponent && gameState.opponent.shields ? gameState.opponent.shields.length : 0;
         const targetCount = Math.min(breakCount, opponentShieldCount);
@@ -2754,28 +2819,16 @@
       if (zone === 'hand' || zone === 'my-battle' || zone === 'shields' || 
           (isEffectMode && (zone === 'opp-battle' || zone === 'opp-hand' || zone === 'opp-shields' || zone === 'graveyard' || zone === 'opp-graveyard'))) {
         if (zone === 'hand') {
-          const now = Date.now();
-          const isDoubleTap = (lastHandCardUuid === uuid && (now - lastHandCardTapTime) < 300);
-          lastHandCardTapTime = now;
-          lastHandCardUuid = uuid;
-
           const cardEl = document.querySelector(`.card[data-uuid="${uuid}"]`);
           if (cardEl) {
-            const isAlreadySelected = cardEl.classList.contains('selected-hand-card');
-
             // すべての手札カードの選択状態を解除
             document.querySelectorAll('#my-hand .card').forEach(el => {
               el.classList.remove('selected-hand-card');
             });
 
-            if (isDoubleTap || isAlreadySelected) {
-              // 2回連続タップ、または既に選択状態であればコンテキストメニューを起動
-              cardEl.classList.add('selected-hand-card');
-              showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
-            } else {
-              // 1回目クリック: 浮き上がらせて選択状態（全身表示）にする
-              cardEl.classList.add('selected-hand-card');
-            }
+            // 1回目クリックで即座に選択状態にしてメニュー表示
+            cardEl.classList.add('selected-hand-card');
+            showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
           }
         } else {
           showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
@@ -4121,4 +4174,4 @@
   </div>
 </body>
 
-</html>
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   

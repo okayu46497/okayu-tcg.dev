@@ -909,17 +909,50 @@ class GameRoom:
             
         return {"success": True}
 
-    def action_break_shields(self, player_id: str, card_uuids: list[str], to_zone: str) -> dict:
-        """指定されたシールドカードを複数選択してブレイク（移動）する"""
+    def action_confirm_shield_break(self, player_id: str, card_uuids: list[str]) -> dict:
+        """攻撃側が、ブレイクするシールドを複数枚選択して確定（保留）する"""
+        current_atk = self.current_attack
+        if not current_atk:
+            return {"error": "現在、解決すべきシールド攻撃がありません"}
+            
+        # 送信者が手番プレイヤー（攻撃側）であることを確認
+        if self.turn_player_id != player_id:
+            return {"error": "シールドを指定できるのは攻撃側プレイヤーのみです"}
+            
+        current_atk["pending_break_uuids"] = card_uuids
+        
+        defender_id = current_atk.get("attacked_player_id")
+        defender = self.players[defender_id]
+        
+        # 攻撃クリーチャーの取得
+        attacker_card = None
+        for p in self.players.values():
+            attacker_card = self._find_card(p.battle_zone, current_atk.get("attacker_uuid"))
+            if attacker_card:
+                break
+        attacker_name = attacker_card["name"] if attacker_card else "クリーチャー"
+        
+        # ログとバナーメッセージの更新
+        self._add_log(f"💥 {attacker_name} が {defender.name} のブレイクするシールドを指定しました。相手の移動先（手札/墓地）選択を待っています")
+        current_atk["message"] = "シールドがブレイクされました！手札か墓地か任意の配置先を選択してください。"
+        
+        return {"success": True}
+
+    def action_break_shields(self, player_id: str, to_zone: str) -> dict:
+        """防御側が、攻撃側によって指定された保留中のシールドの移動先（手札/墓地）を決定してブレイクを実行する"""
         current_atk = self.current_attack
         self.current_attack = None  # 攻撃解決したのでクリア
         
         if not current_atk:
-            return {"error": "無効なシールドブレイク要求です（攻撃中のクリーチャーがいません）"}
+            return {"error": "現在、解決すべきシールド攻撃がありません"}
             
         defender_id = current_atk.get("attacked_player_id")
-        if not defender_id:
-            return {"error": "無効なシールドブレイク要求です（防御側プレイヤーが特定できません）"}
+        if player_id != defender_id:
+            return {"error": "シールドの配置先を選択できるのは防御側プレイヤーのみです"}
+            
+        card_uuids = current_atk.get("pending_break_uuids", [])
+        if not card_uuids:
+            return {"error": "ブレイク対象のシールドが確定されていません"}
             
         defender = self.players[defender_id]
         
@@ -2354,8 +2387,12 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
             elif action == "break_shields":
                 result = room.action_break_shields(
                     player_id,
-                    data.get("card_uuids", []),
                     data.get("to_zone")
+                )
+            elif action == "confirm_shield_break":
+                result = room.action_confirm_shield_break(
+                    player_id,
+                    data.get("card_uuids", [])
                 )
             elif action == "stack_card":
                 result = room.action_stack_card(
