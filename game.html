@@ -1548,6 +1548,26 @@
       gap: 2px;
     }
 
+    .stacked-card-group {
+      position: relative;
+      width: 68px;
+      height: 95px;
+      flex-shrink: 0;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .stacked-card-group.tapped {
+      transform: rotate(12deg);
+      opacity: 0.7;
+    }
+
+    @media (max-height: 480px) {
+      .stacked-card-group {
+        width: 52px !important;
+        height: 72px !important;
+      }
+    }
+
     @keyframes modalIn {
       from {
         transform: scale(0.9) translateY(20px);
@@ -2427,12 +2447,52 @@
         container.innerHTML = hintHTML || '<span style="color:var(--text-dim);font-size:11px;">—</span>';
         return;
       }
-      container.innerHTML = cards.map(card => {
+      
+      let html = '';
+      cards.forEach(card => {
         const isTapped = tappedList && tappedList.includes(card.uuid);
         const isSick = card.summoning_sickness;
         const type = isMine ? 'my-battle' : 'opp-battle';
-        return createCardHTML(card, type, isTapped, isSick);
-      }).join('') + hintHTML;
+        
+        const underCards = card.under_cards || [];
+        if (underCards.length === 0) {
+          html += createCardHTML(card, type, isTapped, isSick);
+        } else {
+          const offsetStep = 5; // offset in pixels
+          const totalOffset = underCards.length * offsetStep;
+          
+          let groupClasses = 'stacked-card-group';
+          if (isTapped) groupClasses += ' tapped';
+          
+          html += `<div class="${groupClasses}" style="margin-right: ${totalOffset + 6}px; margin-bottom: ${totalOffset}px;">`;
+          
+          // Draw under cards from bottom to top
+          for (let i = underCards.length - 1; i >= 0; i--) {
+            const underCard = underCards[i];
+            const offset = (i + 1) * offsetStep;
+            const zIndex = underCards.length - i;
+            
+            let underCardHTML = createCardHTML(underCard, 'under-card', false, false);
+            underCardHTML = underCardHTML.replace(
+              'style="',
+              `style="position: absolute; top: ${offset}px; left: ${offset}px; z-index: ${zIndex}; pointer-events: none; `
+            );
+            html += underCardHTML;
+          }
+          
+          // Draw top card (pass isTapped=false to card because group handles rotation)
+          let topCardHTML = createCardHTML(card, type, false, isSick);
+          topCardHTML = topCardHTML.replace(
+            'style="',
+            `style="position: absolute; top: 0; left: 0; z-index: ${underCards.length + 1}; `
+          );
+          html += topCardHTML;
+          
+          html += `</div>`;
+        }
+      });
+      
+      container.innerHTML = html + hintHTML;
     }
 
     function renderManaZone(containerId, cards, tappedList) {
