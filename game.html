@@ -1578,6 +1578,77 @@
         opacity: 1;
       }
     }
+
+    /* Active drop zones glowing outline */
+    .drop-zone.drag-active-glow {
+      outline: 2px dashed #6c63ff !important;
+      outline-offset: -2px;
+      box-shadow: 0 0 15px rgba(108, 99, 255, 0.4) !important;
+      background: rgba(108, 99, 255, 0.08) !important;
+      transition: all 0.2s;
+    }
+
+    /* Turn alert banner styles */
+    .turn-alert-banner {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      padding: 24px 60px;
+      background: rgba(13, 18, 32, 0.9);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      color: #fff;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px var(--accent-glow);
+      backdrop-filter: blur(12px);
+      z-index: 999;
+      pointer-events: none;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px var(--accent-glow);
+      opacity: 0;
+      display: none;
+    }
+
+    .turn-alert-banner.your-turn-alert {
+      border-color: #3b82f6;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(59, 130, 246, 0.4);
+      text-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+    }
+
+    .turn-alert-banner.opponent-turn-alert {
+      border-color: #ef4444;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(239, 68, 68, 0.4);
+      text-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+    }
+
+    .turn-alert-banner.show-alert {
+      display: block;
+      animation: turnAlertAnim 1.6s ease-in-out forwards;
+    }
+
+    @keyframes turnAlertAnim {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+      }
+      15% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.05);
+      }
+      25% {
+        transform: translate(-50%, -50%) scale(1);
+      }
+      80% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.95);
+      }
+    }
   </style>
 </head>
 
@@ -1617,6 +1688,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Turn Alert Banner -->
+  <div id="turn-alert-banner" class="turn-alert-banner"></div>
 
   <!-- Attack Alert Banner -->
   <div class="attack-alert-banner" id="attack-alert-banner">
@@ -2120,6 +2194,8 @@
     let lastHandCardUuid = null;
     let isEffectMode = false; // 効果解決モード（自由移動）
     let currentTriggerCardUuid = null; // 現在中央ダイアログで確認中のS・トリガーのUUID
+    let lastTurnNumber = 0;
+    let lastTurnPlayerId = null;
 
     // ============================================================
     // WebSocket接続
@@ -2208,7 +2284,7 @@
       const you = gameState.you;
       const opp = gameState.opponent;
 
-      // ターン表示
+      // ターン表示 & 交代演出
       const turnEl = document.getElementById('turn-indicator');
       if (gameState.is_your_turn) {
         turnEl.textContent = `🔥 あなたのターン (T${gameState.turn_number})`;
@@ -2216,6 +2292,28 @@
       } else {
         turnEl.textContent = `相手のターン (T${gameState.turn_number})`;
         turnEl.className = 'turn-indicator opponent-turn';
+      }
+
+      // ターン変更時の警告バナー演出
+      if (gameState.turn_number !== lastTurnNumber || gameState.turn_player_id !== lastTurnPlayerId) {
+        const turnBanner = document.getElementById('turn-alert-banner');
+        if (turnBanner) {
+          turnBanner.className = 'turn-alert-banner'; // reset classes
+          void turnBanner.offsetWidth; // trigger reflow to restart animation
+          
+          if (gameState.is_your_turn) {
+            turnBanner.classList.add('your-turn-alert');
+            turnBanner.innerHTML = `YOUR TURN<div style="font-size: 14px; font-weight: normal; margin-top: 4px; color: var(--text-dim);">あなたのターンです</div>`;
+          } else {
+            turnBanner.classList.add('opponent-turn-alert');
+            const oppName = opp ? opp.name : '相手';
+            turnBanner.innerHTML = `OPPONENT'S TURN<div style="font-size: 14px; font-weight: normal; margin-top: 4px; color: var(--text-dim);">${oppName}のターンです</div>`;
+          }
+          
+          turnBanner.classList.add('show-alert');
+        }
+        lastTurnNumber = gameState.turn_number;
+        lastTurnPlayerId = gameState.turn_player_id;
       }
 
       // プレイヤー名
@@ -2679,6 +2777,9 @@
       requestAnimationFrame(() => {
         e.target.classList.add('dragging');
       });
+
+      // 有効なドロップゾーンをハイライト
+      highlightValidDropZones(source);
     }
 
     function onCardDragEnd(e) {
@@ -2707,6 +2808,9 @@
       requestAnimationFrame(() => {
         document.getElementById('my-deck-pile').classList.add('dragging');
       });
+
+      // 山札ドラッグ時の有効なドロップゾーンをハイライト
+      highlightValidDropZones('deck');
     }
 
     function onDeckDragEnd(e) {
@@ -3743,6 +3847,48 @@
       document.querySelectorAll('#opp-battle-zone .card').forEach(el => {
         el.classList.remove('drag-over-attack');
       });
+      // アクティブなドラッグ先グローもクリア
+      document.querySelectorAll('.drag-active-glow').forEach(el => {
+        el.classList.remove('drag-active-glow');
+      });
+    }
+
+    function highlightValidDropZones(source) {
+      // 一旦すべてのグローをクリア
+      document.querySelectorAll('.drag-active-glow').forEach(el => {
+        el.classList.remove('drag-active-glow');
+      });
+
+      if (source === 'hand' || source === 'deck') {
+        const battle = document.getElementById('my-battle-zone');
+        const mana = document.getElementById('my-mana-zone');
+        const grave = document.getElementById('my-grave-pile');
+        const shield = document.getElementById('my-shield-zone');
+        const hand = document.getElementById('my-hand-container');
+
+        if (battle) battle.classList.add('drag-active-glow');
+        if (mana) mana.classList.add('drag-active-glow');
+        if (grave) grave.classList.add('drag-active-glow');
+        if (shield) shield.classList.add('drag-active-glow');
+        if (source === 'deck' && hand) hand.classList.add('drag-active-glow');
+      } else if (source === 'my-battle') {
+        const mana = document.getElementById('my-mana-zone');
+        const grave = document.getElementById('my-grave-pile');
+        const hand = document.getElementById('my-hand-container');
+
+        if (mana) mana.classList.add('drag-active-glow');
+        if (grave) grave.classList.add('drag-active-glow');
+        if (hand) hand.classList.add('drag-active-glow');
+
+        // 自分のターンなら相手シールドとクリーチャーが攻撃対象
+        if (gameState && gameState.is_your_turn) {
+          const oppShields = document.getElementById('opp-shield-zone');
+          if (oppShields) oppShields.classList.add('drag-active-glow');
+          document.querySelectorAll('#opp-battle-zone .card').forEach(card => {
+            card.classList.add('drag-active-glow');
+          });
+        }
+      }
     }
 
     // ============================================================
