@@ -2923,14 +2923,21 @@
         if (zone === 'hand') {
           const cardEl = document.querySelector(`.card[data-uuid="${uuid}"]`);
           if (cardEl) {
+            const isAlreadySelected = cardEl.classList.contains('selected-hand-card');
+
             // すべての手札カードの選択状態を解除
             document.querySelectorAll('#my-hand .card').forEach(el => {
               el.classList.remove('selected-hand-card');
             });
 
-            // 1回目クリックで即座に選択状態にしてメニュー表示
-            cardEl.classList.add('selected-hand-card');
-            showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
+            if (isAlreadySelected) {
+              // 既に選択されていたらコンテキストメニューを表示
+              cardEl.classList.add('selected-hand-card');
+              showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
+            } else {
+              // 初回クリックは浮き上がらせる（選択状態にする）
+              cardEl.classList.add('selected-hand-card');
+            }
           }
         } else {
           showCardInteractionMenu(e.clientX, e.clientY, uuid, zone);
